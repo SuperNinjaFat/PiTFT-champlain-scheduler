@@ -5,6 +5,7 @@
       <option name="ignoredIdentifiers">
         <list>
           <option value="start" />
+          <option value="temperature.start.pygameObjects" />
         </list>
       </option>
     </inspection_tool>
