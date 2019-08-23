@@ -1,7 +1,7 @@
 import os
 import datetime
 import socket
-
+from enum import Enum
 import pygame
 import requests
 from pygame.locals import *
@@ -19,10 +19,13 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 # PiTFT Screen Size (320x240)
 SCREEN_SIZE = 320, 240
 
+# Initialize Pygame
 pygame.init()
-pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, update
-
 screen = pygame.display.set_mode(SCREEN_SIZE)
+
+# Initialize Events
+pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new data.
+pygame.time.set_timer(USEREVENT + 2, 10000)#120000)  # Every 2 minutes, switch the surface.
 
 # Fonts
 FONT_FALLOUT = pygame.font.Font('r_fallouty.ttf', 30)  # TODO: Fix directory access outside of local directory
@@ -37,19 +40,46 @@ COLOR_ORANGE = 251, 126, 20
 COLOR_LAVENDER = 230, 230, 250
 
 
+class Content(Enum):
+    TEMPERATURE = 1
+    PICTURE = 2
+    SHUTTLE = 3
+
+
 class Environment:
     def __init__(self):
+        # Initialize data buffers
+        self.temp_data = None
+        # Surface buffer
         self.surf = None
+        # Time Buffer
         self.time_text = None
+        # Content Switcher (Temperature First)
+        self.content = Content.TEMPERATURE
 
     def menu(self):
-        self.plot()
+        # download data #TODO: See if I can move this into def __init__
+        self.pullData()
+        #Display Temperature first
+        self.surf_startup()
 
         crashed = False
         while not crashed:
             for event in pygame.event.get():
+                # Every 8 hours, download data
                 if event.type == USEREVENT + 1:
-                    self.plot()
+                    self.pullData()
+                # Every 2 minutes, change the surface
+                if event.type == USEREVENT + 2:
+                    if self.content is Content.TEMPERATURE: # Next is TEMPERATURE
+                        self.surf_plot()
+                        self.content = Content.PICTURE #Content(1 + self.content.value) # Next is PICTURE
+                    elif self.content is Content.PICTURE:
+                        self.surf_picture()
+                        self.content = Content.SHUTTLE #Content(1 + self.content.value)  # Next is SHUTTLE
+                    elif self.content is Content.SHUTTLE:
+                        self.surf_shuttle()
+                        self.content = Content.TEMPERATURE
                 if event.type == pygame.QUIT:
                     crashed = True
             self.refresh()
@@ -62,14 +92,29 @@ class Environment:
         screen.blit(self.time_text, (70, 20))
         pygame.display.update()
 
-    def plot(self):
+    def surf_startup(self):
+        print("Startup")
+        image_startup = pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOnline.png'))
+        image_startup = pygame.transform.scale(image_startup, SCREEN_SIZE)
+        # Set surface image
+        self.surf = image_startup
+
+    def surf_picture(self):  # TODO: https://developers.google.com/drive/api/v3/manage-downloads
+        # TODO: http://blog.vogella.com/2011/06/21/creating-bitmaps-from-the-internet-via-apache-httpclient/
+        print("Picture Album")
+        pass
+
+    def surf_shuttle(self):  # TODO: https://shuttle.champlain.edu/
+        print("Shuttle Map")
+        pass
+
+    def surf_plot(self):
         print("Lake Temperature")
         # window = pygame.display.set_mode(SCREEN_SIZE, DOUBLEBUF)
         # screen = pygame.display.get_surface()
 
-        self.data = self.pullData()
-        # Create list of date-flow values TODO: Test the functionality of 8-hour re-downloading data
-        if self.data:
+        # Create list of date-flow values TODO: separate processes of re-downloading data and applying image
+        if self.temp_data:
             self.surf = self.graph_temp()
         else:
             image_offline = pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))
@@ -78,22 +123,29 @@ class Environment:
             self.surf = image_offline
 
     def graph_temp(self):
-        for series in self.data:
-            flow = [r[0] for r in series.data]
-            dates = [r[1] for r in series.data]
+        for series in self.temp_data:
+            dates = [r[0] for r in series.data]  # TODO: Convert Celsius to Fahrenheit
+            flow = [r[1] for r in series.data]
         # render matplotgraph to bitmap
         fig = pylab.figure(figsize=[6.4, 4.8],  # Inches
                            dpi=50,  # 100 dots per inch, so the resulting buffer is 400x400 pixels
                            )
         ax = fig.gca()
-        ax.plot(flow, dates)
+        for i, cel in enumerate(flow):
+            flow[i] = (cel * (9/5)) + 32
+        ax.grid(True)
+        ax.plot(dates, flow)
         # print(flow)
         # print(dates)
         # Source name
         # fig.text(0.02, 0.5, series.variable_name, fontsize=10, rotation='vertical', verticalalignment='center')
-        fig.text(0.02, 0.5, 'Water Temperature (\N{DEGREE SIGN}C)', fontsize=10, rotation='vertical',
+        fig.text(0.02, 0.5, 'Water Temperature (\N{DEGREE SIGN}F)', fontsize=10, rotation='vertical',
                  verticalalignment='center')
         fig.text(0.5, 0.9, series.site_name, fontsize=18, horizontalalignment='center')
+        fig.text(0.87, 0.82, str(round(flow[-1]))+'\N{DEGREE SIGN}F', fontsize=25,
+                 bbox=dict(boxstyle="round4", pad=0.3, fc='#ee8d18', ec="b", lw=2))
+        # TODO: better annotation: 
+        # https://matplotlib.org/users/annotations.html#plotting-guide-annotation
         # Draw raw data
         canvas = agg.FigureCanvasAgg(fig)
         canvas.draw()
@@ -118,4 +170,4 @@ class Environment:
             )
         except (requests.exceptions.ConnectionError, socket.gaierror, ConnectionError) as e:
             print(e)
-        return data
+        self.temp_data = data
