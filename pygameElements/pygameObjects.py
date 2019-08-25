@@ -19,6 +19,10 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 # PiTFT Screen Size (320x240)
 SCREEN_SIZE = 320, 240
 
+# Innitialize OS Screen
+#os.environ["SDL_FBDEV"] = "/dev/fb1"
+os.putenv('SDL_FBDEV', '/dev/fb1')
+
 # Initialize Pygame
 pygame.init()
 pygame.mouse.set_visible(False)
