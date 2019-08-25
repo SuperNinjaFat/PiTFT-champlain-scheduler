@@ -1,7 +1,7 @@
 from pygameElements.pygameObjects import *
 
 
-os.environ["SDL_FBDEV"] = "/dev/fb1"
+#os.environ["SDL_FBDEV"] = "/dev/fb1"
 
 
 def main():
