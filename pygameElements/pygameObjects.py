@@ -21,6 +21,7 @@ SCREEN_SIZE = 320, 240
 
 # Initialize Pygame
 pygame.init()
+pygame.mouse.set_visible(False)
 screen = pygame.display.set_mode(SCREEN_SIZE)
 
 # Initialize Events
