@@ -3,7 +3,11 @@ Gets the temperature of the lake in Lake Champlain and displays it to a raspberr
 
 # Required Libraries:
 Climata https://pypi.org/project/climata/
+
 matplotlib
+
 pygame
+
 pylab
+
 pandas

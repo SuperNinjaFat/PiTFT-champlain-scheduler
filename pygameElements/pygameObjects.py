@@ -1,3 +1,5 @@
+import matplotlib
+import matplotlib.backends.backend_agg as agg
 import os
 import datetime
 import socket
@@ -5,8 +7,6 @@ from enum import Enum
 import pygame
 import requests
 from pygame.locals import *
-import matplotlib
-import matplotlib.backends.backend_agg as agg
 import pylab
 from climata.usgs import DailyValueIO
 import pandas
@@ -144,7 +144,7 @@ class Environment:
         fig.text(0.5, 0.9, series.site_name, fontsize=18, horizontalalignment='center')
         fig.text(0.87, 0.82, str(round(flow[-1]))+'\N{DEGREE SIGN}F', fontsize=25,
                  bbox=dict(boxstyle="round4", pad=0.3, fc='#ee8d18', ec="b", lw=2))
-        # TODO: better annotation: 
+        # TODO: better annotation:
         # https://matplotlib.org/users/annotations.html#plotting-guide-annotation
         # Draw raw data
         canvas = agg.FigureCanvasAgg(fig)
@@ -160,7 +160,7 @@ class Environment:
         station_id = "04294500"
         param_id = "00010"
         datelist = pandas.date_range(end=pandas.datetime.today(), periods=ndays).tolist()
-        data = None
+        data = None  # https://www.earthdatascience.org/tutorials/acquire-and-visualize-usgs-hydrology-data/
         try:
             data = DailyValueIO(
                 start_date=datelist[0],
