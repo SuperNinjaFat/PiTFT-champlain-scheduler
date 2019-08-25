@@ -1,3 +1,4 @@
+import pandas
 import matplotlib
 import matplotlib.backends.backend_agg as agg
 import os
@@ -9,7 +10,6 @@ import requests
 from pygame.locals import *
 import pylab
 from climata.usgs import DailyValueIO
-import pandas
 
 matplotlib.use("Agg")
 
