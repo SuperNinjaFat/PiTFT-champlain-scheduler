@@ -10,6 +10,7 @@ import requests
 from pygame.locals import *
 import pylab
 from climata.usgs import DailyValueIO
+# import RPi.GPIO as GPIO
 
 matplotlib.use("Agg")
 
@@ -19,9 +20,19 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 # PiTFT Screen Size (320x240)
 SCREEN_SIZE = 320, 240
 
+button_map = {23: (255, 0, 0), 22: (0, 255, 0), 27: (0, 0, 255), 18: (0, 0, 0)}
+
+# Setup the GPIOs as inputs with Pull Ups since the buttons are connected to GND
+# GPIO.setmode(GPIO.BCM)
+# for k in button_map.keys():
+#     GPIO.setup(k, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+# TODO: Once buttons are soldered on: https://web.archive.org/web/20151027165018/http://jeremyblythe.blogspot.com/2014/09/raspberry-pi-pygame-ui-basics.html
+
 # Innitialize OS Screen
 #os.environ["SDL_FBDEV"] = "/dev/fb1"
 os.putenv('SDL_FBDEV', '/dev/fb1')
+os.putenv('SDL_MOUSEDRV', 'TSLIB')
+os.putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
 
 # Initialize Pygame
 pygame.init()
@@ -33,9 +44,11 @@ pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new da
 pygame.time.set_timer(USEREVENT + 2, 10000)#120000)  # Every 2 minutes, switch the surface.
 
 # Fonts
-print( pygame.font.get_fonts())
-FONT_FALLOUT = pygame.font.SysFont('r_fallouty.ttf', 30)  # TODO: Fix directory access outside of local directory
-FONT_BM = pygame.font.SysFont('din1451alt.ttf', 30)
+FONT_FALLOUT = pygame.font.SysFont('r_fallouty.ttf', 30) #pygame.font.Font('r_fallouty.ttf', 30)
+FONT_BM = pygame.font.SysFont('din1451alt.ttf', 30) #pygame.font.Font('din1451alt.ttf', 30)
+#  TODO: Fix Font not working on Raspberry Pi
+#  TODO: Fix directory access outside of local directory
+
 
 # colors
 COLOR_BLACK = 0, 0, 0
@@ -45,7 +58,7 @@ COLOR_GRAY_41 = 105, 105, 105
 COLOR_ORANGE = 251, 126, 20
 COLOR_LAVENDER = 230, 230, 250
 
-
+# Content switching
 class Content(Enum):
     TEMPERATURE = 1
     PICTURE = 2
@@ -88,6 +101,10 @@ class Environment:
                         self.content = Content.TEMPERATURE
                 if event.type == pygame.QUIT:
                     crashed = True
+                # Quit
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
             self.refresh()
 
     def refresh(self):
