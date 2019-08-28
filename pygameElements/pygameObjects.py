@@ -33,9 +33,9 @@ pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new da
 pygame.time.set_timer(USEREVENT + 2, 10000)#120000)  # Every 2 minutes, switch the surface.
 
 # Fonts
-print(pygame.font.get_fonts())
-FONT_FALLOUT = pygame.font.Font('r_fallouty.ttf', 30)  # TODO: Fix directory access outside of local directory
-FONT_BM = pygame.font.Font('din1451alt.ttf', 30)
+print( pygame.font.get_fonts())
+FONT_FALLOUT = pygame.font.SysFont('r_fallouty.ttf', 30)  # TODO: Fix directory access outside of local directory
+FONT_BM = pygame.font.SysFont('din1451alt.ttf', 30)
 
 # colors
 COLOR_BLACK = 0, 0, 0
