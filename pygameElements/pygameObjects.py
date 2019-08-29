@@ -61,7 +61,7 @@ else:
     FONT_FALLOUT = pygame.font.SysFont(None, 30)
     FONT_BM = pygame.font.SysFont(None, 40)
 #  TODO: Fix Font not working on Raspberry Pi
-
+print("didn't it work??")
 
 # colors
 COLOR_BLACK = 0, 0, 0
