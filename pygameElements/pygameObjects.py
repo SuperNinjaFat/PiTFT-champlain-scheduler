@@ -2,6 +2,7 @@ import pandas
 import matplotlib
 import matplotlib.backends.backend_agg as agg
 import os
+import platform
 import datetime
 import socket
 from enum import Enum
@@ -44,11 +45,15 @@ pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new da
 pygame.time.set_timer(USEREVENT + 2, 10000)#120000)  # Every 2 minutes, switch the surface.
 
 # Fonts
-try:
+# print(pygame.font.get_fonts())
+# print(platform.node())
+if platform.system() is 'Windows':
     FONT_FALLOUT = pygame.font.Font('r_fallouty.ttf', 30)
     FONT_BM = pygame.font.Font('din1451alt.ttf', 30)
-except OSError as e:
-    print("Custom font failed to initialize, defaults used")
+elif platform.system() is 'Linux':
+    FONT_FALLOUT = pygame.font.Font('fallouty', 30)
+    FONT_BM = pygame.font.Font('altedin1451mittelschrift', 30)
+else:
     FONT_FALLOUT = pygame.font.SysFont(None, 30)
     FONT_BM = pygame.font.SysFont(None, 40)
 #  TODO: Fix Font not working on Raspberry Pi
