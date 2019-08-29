@@ -48,16 +48,19 @@ pygame.time.set_timer(USEREVENT + 2, 10000)#120000)  # Every 2 minutes, switch t
 # print(pygame.font.get_fonts())
 # print(platform.node())
 if platform.system() is 'Windows':
+    print("Windows fonts")
+#  TODO: Fix directory access outside of local directory
     FONT_FALLOUT = pygame.font.Font('r_fallouty.ttf', 30)
     FONT_BM = pygame.font.Font('din1451alt.ttf', 30)
 elif platform.system() is 'Linux':
+    print("Linux fonts")
     FONT_FALLOUT = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
     FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 30)
 else:
+    print("default fonts")
     FONT_FALLOUT = pygame.font.SysFont(None, 30)
     FONT_BM = pygame.font.SysFont(None, 40)
 #  TODO: Fix Font not working on Raspberry Pi
-#  TODO: Fix directory access outside of local directory
 
 
 # colors
