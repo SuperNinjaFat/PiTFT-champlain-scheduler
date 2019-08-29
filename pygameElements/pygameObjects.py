@@ -51,8 +51,8 @@ if platform.system() is 'Windows':
     FONT_FALLOUT = pygame.font.Font('r_fallouty.ttf', 30)
     FONT_BM = pygame.font.Font('din1451alt.ttf', 30)
 elif platform.system() is 'Linux':
-    FONT_FALLOUT = pygame.font.Font('fallouty.ttf', 30)
-    FONT_BM = pygame.font.Font('altedin1451mittelschrift.ttf', 30)
+    FONT_FALLOUT = pygame.font.SysFont('fallouty', 30)
+    FONT_BM = pygame.font.SysFont('altedin1451mittelschrift', 30)
 else:
     FONT_FALLOUT = pygame.font.SysFont(None, 30)
     FONT_BM = pygame.font.SysFont(None, 40)
