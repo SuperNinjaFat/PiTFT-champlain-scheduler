@@ -44,8 +44,13 @@ pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new da
 pygame.time.set_timer(USEREVENT + 2, 10000)#120000)  # Every 2 minutes, switch the surface.
 
 # Fonts
-FONT_FALLOUT = pygame.font.SysFont('r_fallouty.ttf', 30) #pygame.font.Font('r_fallouty.ttf', 30)
-FONT_BM = pygame.font.SysFont('din1451alt.ttf', 30) #pygame.font.Font('din1451alt.ttf', 30)
+try:
+    FONT_FALLOUT = pygame.font.Font('r_fallouty.ttf', 30)
+    FONT_BM = pygame.font.Font('din1451alt.ttf', 30)
+except OSError as e:
+    print("Custom font failed to initialize, defaults used")
+    FONT_FALLOUT = pygame.font.SysFont(None, 30)
+    FONT_BM = pygame.font.SysFont(None, 40)
 #  TODO: Fix Font not working on Raspberry Pi
 #  TODO: Fix directory access outside of local directory
 
