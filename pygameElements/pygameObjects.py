@@ -11,6 +11,8 @@ import requests
 from pygame.locals import *
 import pylab
 from climata.usgs import DailyValueIO
+import requests
+
 # import RPi.GPIO as GPIO
 
 matplotlib.use("Agg")
@@ -30,7 +32,7 @@ button_map = {23: (255, 0, 0), 22: (0, 255, 0), 27: (0, 0, 255), 18: (0, 0, 0)}
 # TODO: Once buttons are soldered on: https://web.archive.org/web/20151027165018/http://jeremyblythe.blogspot.com/2014/09/raspberry-pi-pygame-ui-basics.html
 
 # Innitialize OS Screen
-#os.environ["SDL_FBDEV"] = "/dev/fb1"
+# os.environ["SDL_FBDEV"] = "/dev/fb1"
 os.putenv('SDL_FBDEV', '/dev/fb1')
 os.putenv('SDL_MOUSEDRV', 'TSLIB')
 os.putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
@@ -42,14 +44,14 @@ screen = pygame.display.set_mode(SCREEN_SIZE)
 
 # Initialize Events
 pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new data.
-pygame.time.set_timer(USEREVENT + 2, 10000)#120000)  # Every 2 minutes, switch the surface.
+pygame.time.set_timer(USEREVENT + 2, 10000)  # 120000)  # Every 2 minutes, switch the surface.
 
 # Fonts
 # print(pygame.font.get_fonts())
 # print(platform.node())
 if platform.system() is 'Windows':
     print("Windows fonts")
-#  TODO: Fix directory access outside of local directory
+    #  TODO: Fix directory access outside of local directory
     FONT_FALLOUT = pygame.font.Font('r_fallouty.ttf', 30)
     FONT_BM = pygame.font.Font('din1451alt.ttf', 30)
 elif platform.system() is 'Linux':
@@ -71,11 +73,13 @@ COLOR_GRAY_41 = 105, 105, 105
 COLOR_ORANGE = 251, 126, 20
 COLOR_LAVENDER = 230, 230, 250
 
+
 # Content switching
 class Content(Enum):
     TEMPERATURE = 1
     PICTURE = 2
-    SHUTTLE = 3
+    MAINSTREET = 3
+    SHUTTLE = 4
 
 
 class Environment:
@@ -92,7 +96,7 @@ class Environment:
     def menu(self):
         # download data #TODO: See if I can move this into def __init__
         self.pullData()
-        #Display Temperature first
+        # Display Temperature first
         self.surf_startup()
 
         crashed = False
@@ -103,12 +107,15 @@ class Environment:
                     self.pullData()
                 # Every 2 minutes, change the surface
                 if event.type == USEREVENT + 2:
-                    if self.content is Content.TEMPERATURE: # Next is TEMPERATURE
+                    if self.content is Content.TEMPERATURE:  # Next is TEMPERATURE
                         self.surf_plot()
-                        self.content = Content.PICTURE #Content(1 + self.content.value) # Next is PICTURE
+                        self.content = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
                     elif self.content is Content.PICTURE:
                         self.surf_picture()
-                        self.content = Content.SHUTTLE #Content(1 + self.content.value)  # Next is SHUTTLE
+                        self.content = Content.MAINSTREET  # Content(1 + self.content.value)  # Next is MAINSTREET
+                    elif self.content is Content.MAINSTREET:
+                        self.surf_mainstreet()
+                        self.content = Content.SHUTTLE  # Content(1 + self.content.value)  # Next is SHUTTLE
                     elif self.content is Content.SHUTTLE:
                         self.surf_shuttle()
                         self.content = Content.TEMPERATURE
@@ -135,9 +142,22 @@ class Environment:
         # Set surface image
         self.surf = image_startup
 
-    def surf_picture(self):  # TODO: https://developers.google.com/drive/api/v3/manage-downloads
+    def surf_picture(self):
+        # TODO: https://developers.google.com/drive/api/v3/manage-downloads
         # TODO: http://blog.vogella.com/2011/06/21/creating-bitmaps-from-the-internet-via-apache-httpclient/
         print("Picture Album")
+        #  TODO: Display image in graph
+        #  os.path.join(BASE_DIR, 'resource', 'burlington.jpg')
+        image_burlington = pygame.image.load(os.path.join(BASE_DIR, 'resource', 'burlington.jpg'))
+        image_burlington = pygame.transform.scale(image_burlington, SCREEN_SIZE)
+        # Set surface image
+        self.surf = image_burlington
+        pass
+
+    def surf_mainstreet(self):
+        # TODO: https://www.mainstreetlanding.com/performing-arts-center/daily-rental-information/movies-at-main-street-landing/
+        # TODO: https://stackoverflow.com/questions/18294711/extracting-images-from-html-pages-with-python
+        print("Mainstreet Landing Movies")
         pass
 
     def surf_shuttle(self):  # TODO: https://shuttle.champlain.edu/
@@ -168,7 +188,7 @@ class Environment:
                            )
         ax = fig.gca()
         for i, cel in enumerate(flow):
-            flow[i] = (cel * (9/5)) + 32
+            flow[i] = (cel * (9 / 5)) + 32
         ax.grid(True)
         ax.plot(dates, flow)
         # print(flow)
@@ -178,8 +198,8 @@ class Environment:
         fig.text(0.02, 0.5, 'Water Temperature (\N{DEGREE SIGN}F)', fontsize=10, rotation='vertical',
                  verticalalignment='center')
         fig.text(0.5, 0.9, series.site_name, fontsize=18, horizontalalignment='center')
-        fig.text(0.87, 0.82, str(round(flow[-1]))+'\N{DEGREE SIGN}F', fontsize=25,
-                 bbox=dict(boxstyle="round4", pad=0.3, fc='#ee8d18', ec="b", lw=2))
+        fig.text(0.84, 0.81, str(round(flow[-1])) + '\N{DEGREE SIGN}F', fontsize=25,
+                 bbox=dict(boxstyle="round", pad=0.1, fc='#ee8d18', ec="#a05d0c", lw=2))
         # TODO: better annotation:
         # https://matplotlib.org/users/annotations.html#plotting-guide-annotation
         # Draw raw data
@@ -210,3 +230,8 @@ class Environment:
         except (requests.exceptions.ConnectionError, socket.gaierror, ConnectionError) as e:
             print(e)
         self.temp_data = data
+
+        # Pull image from Camnet, don't use one if error is returned.
+        f = open(os.path.join(BASE_DIR, 'resource', 'burlington.jpg'), 'wb')
+        f.write(requests.get('https://hazecam.net/images/large/burlington_left.jpg').content)
+        f.close()  # TODO: Error Checking requests.get() error
