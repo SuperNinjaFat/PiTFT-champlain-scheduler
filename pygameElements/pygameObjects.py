@@ -180,15 +180,19 @@ class Environment:
 
     def graph_temp(self):
         for series in self.temp_data:
-            dates = [r[0] for r in series.data]  # TODO: Convert Celsius to Fahrenheit
+            dates = [r[0] for r in series.data]
             flow = [r[1] for r in series.data]
         # render matplotgraph to bitmap
         fig = pylab.figure(figsize=[6.4, 4.8],  # Inches
                            dpi=50,  # 100 dots per inch, so the resulting buffer is 400x400 pixels
                            )
         ax = fig.gca()
+        # Convert Celsius to Fahrenheit
         for i, cel in enumerate(flow):
             flow[i] = (cel * (9 / 5)) + 32
+        # Format dates
+        for i, day in enumerate(dates):
+            dates[i] = '{:%b-%d\n(%a)}'.format(datetime.datetime.strptime(str(dates[i]), '%Y-%m-%d %H:%M:%S'))
         ax.grid(True)
         ax.plot(dates, flow)
         # print(flow)
