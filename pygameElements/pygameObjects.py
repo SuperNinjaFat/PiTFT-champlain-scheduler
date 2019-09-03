@@ -7,11 +7,12 @@ import datetime
 import socket
 from enum import Enum
 import pygame
-import requests
 from pygame.locals import *
 import pylab
 from climata.usgs import DailyValueIO
 import requests
+from bs4 import BeautifulSoup
+from html.parser import HTMLParser
 
 # import RPi.GPIO as GPIO
 
@@ -73,6 +74,9 @@ COLOR_GRAY_41 = 105, 105, 105
 COLOR_ORANGE = 251, 126, 20
 COLOR_LAVENDER = 230, 230, 250
 
+# urls
+URL_MAINSTREET = "https://www.mainstreetlanding.com"
+
 
 # Content switching
 class Content(Enum):
@@ -82,10 +86,33 @@ class Content(Enum):
     SHUTTLE = 4
 
 
+class Sponsor:
+    def __init__(self, name="", desc="", img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))):
+        self.name = name
+        self.desc = desc
+        self.img = img
+
+
+class Movie:
+    def __init__(self, title="", desc="", img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))):
+        self.title = title
+        self.desc = desc
+        self.img = img
+
+
+# TODO: Error Checking requests.get() error
+def downloadImage(output, address):
+    f = open(os.path.join(BASE_DIR, 'resource', output), 'wb')
+    f.write(requests.get(address).content)
+    f.close()
+
+
 class Environment:
     def __init__(self):
         # Initialize data buffers
         self.temp_data = None
+        self.movies = []
+        self.sponsor = Sponsor
         # Surface buffer
         self.surf = None
         # Time Buffer
@@ -148,10 +175,8 @@ class Environment:
         print("Picture Album")
         #  TODO: Display image in graph
         #  os.path.join(BASE_DIR, 'resource', 'burlington.jpg')
-        image_burlington = pygame.image.load(os.path.join(BASE_DIR, 'resource', 'burlington.jpg'))
-        image_burlington = pygame.transform.scale(image_burlington, SCREEN_SIZE)
         # Set surface image
-        self.surf = image_burlington
+        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'burlington.jpg')), SCREEN_SIZE)
         pass
 
     def surf_mainstreet(self):
@@ -173,10 +198,9 @@ class Environment:
         if self.temp_data:
             self.surf = self.graph_temp()
         else:
-            image_offline = pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))
-            image_offline = pygame.transform.scale(image_offline, SCREEN_SIZE)
-            # Set surface image
-            self.surf = image_offline
+            # Set surface image to offline
+            self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png')),
+                                               SCREEN_SIZE)
 
     def graph_temp(self):
         for series in self.temp_data:
@@ -235,7 +259,38 @@ class Environment:
             print(e)
         self.temp_data = data
 
-        # Pull image from Camnet, don't use one if error is returned.
-        f = open(os.path.join(BASE_DIR, 'resource', 'burlington.jpg'), 'wb')
-        f.write(requests.get('https://hazecam.net/images/large/burlington_left.jpg').content)
-        f.close()  # TODO: Error Checking requests.get() error
+        # Pull image and text data from mainstreetlanding.com
+        html = requests.get(
+            "https://www.mainstreetlanding.com/performing-arts-center/daily-rental-information/movies-at-main-street-landing/")
+        soup = BeautifulSoup(html.text, features="html.parser")
+        listings_raw = soup.findAll("article", {"class": "listing"})
+
+        sponsor_raw = listings_raw.pop(-1)
+        # download image (sponsor)
+        downloadImage('sponsor.jpg', URL_MAINSTREET + "/" + str(sponsor_raw.contents[1].contents[1].contents[1].attrs['src']))
+        self.sponsor = Sponsor(
+                               name=str(sponsor_raw.contents[1].contents[1].contents[1].attrs['alt']),
+                               # TODO: Parse description html (maybe allow it to italicize when printing it?)
+                               desc=str(sponsor_raw.contents[1].contents[3].contents[1]),
+                               # TODO: Parse image src into html link, download the image,
+                               # and pygame.image.load() it into 'Sponsor.img'.
+                               # pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))
+                               img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'sponsor.jpg'))
+                               )
+        for listing in listings_raw:
+            # download image (movies)
+            m_image_name = 'movie' + str(listings_raw.index(listing)) + '.jpg'
+            downloadImage(m_image_name,
+                          URL_MAINSTREET + "/" + str(listing.contents[1].contents[1].contents[1].attrs['src']))
+            self.movies.append(Movie(
+                                     title=str(listing.contents[1].contents[3].contents[1].contents[0]),
+                                     # TODO: Parse description html (maybe allow it to italicize when printing it?)
+                                     desc=str(listing.contents[1].contents[3].contents[5]),
+                                     # TODO: Parse image src into html link, download the image,
+                                     # and pygame.image.load() it into 'Movie.img'.
+                                     # pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))
+                                     img=pygame.image.load(os.path.join(BASE_DIR, 'resource', m_image_name))
+                                     ))
+
+        # Pull image from Camnet
+        downloadImage('burlington.jpg', 'https://hazecam.net/images/large/burlington_left.jpg')
