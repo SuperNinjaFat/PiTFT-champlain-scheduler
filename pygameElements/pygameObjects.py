@@ -57,7 +57,7 @@ if platform.system() == "Windows":
 elif platform.system() == "Linux":
     print("Linux fonts")
     FONT_FALLOUT = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
-    FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 8)
+    FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 40)#8)
 else:
     print("default fonts")
     FONT_FALLOUT = pygame.font.SysFont(None, 30)
