@@ -162,7 +162,8 @@ class Environment:
                     if k == button_map[2]:
                         pass
                     if k == button_map[3]:
-                        pass
+                        # Reset the card timer
+                        pygame.time.set_timer(USEREVENT + 2, 10000)
                     # pygame.display.update()
             self.refresh()
 
