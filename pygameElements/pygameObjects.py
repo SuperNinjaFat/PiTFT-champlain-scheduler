@@ -24,6 +24,7 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 # PiTFT Screen Size (320x240)
 SCREEN_SIZE = 320, 240
 
+# PiTFT Button Map
 button_map = {23: (255, 0, 0), 22: (0, 255, 0), 27: (0, 0, 255), 18: (0, 0, 0)}
 
 # Setup the GPIOs as inputs with Pull Ups since the buttons are connected to GND
@@ -39,6 +40,7 @@ os.putenv('SDL_MOUSEDRV', 'TSLIB')
 os.putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
 
 # Initialize Pygame
+print("HELLOOOOOOOO???")
 pygame.init()
 pygame.mouse.set_visible(False)
 screen = pygame.display.set_mode(SCREEN_SIZE)
@@ -59,7 +61,7 @@ if platform.system() is 'Windows':
 elif platform.system() is 'Linux':
     print("Linux fonts")
     FONT_FALLOUT = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
-    FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 30)
+    FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 8)
 else:
     print("default fonts")
     FONT_FALLOUT = pygame.font.SysFont(None, 30)
