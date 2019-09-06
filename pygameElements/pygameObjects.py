@@ -57,7 +57,7 @@ if platform.system() == "Windows":
 elif platform.system() == "Linux":
     print("Linux fonts")
     FONT_FALLOUT = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
-    FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 40)#8)
+    FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 8)
 else:
     print("default fonts")
     FONT_FALLOUT = pygame.font.SysFont(None, 30)
@@ -302,4 +302,4 @@ class Environment:
 
     def pullTime(self):
         d = datetime.datetime.strptime(str(datetime.datetime.now().time()), "%H:%M:%S.%f")
-        self.time_text = (FONT_BM.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_BM.render(d.strftime("%p"), True, COLOR_BLACK))
+        self.time_text = (FONT_FALLOUT.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_FALLOUT.render(d.strftime("%p"), True, COLOR_BLACK))
