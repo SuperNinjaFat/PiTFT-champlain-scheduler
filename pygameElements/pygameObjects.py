@@ -152,15 +152,16 @@ class Environment:
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
             # Scan the buttons
+            # COMMENT OUT FOR WINDOWS TESTING
             for (k, v) in button_map.items():
                 if GPIO.input(k) == False:
                     screen.fill(v)
-                    text_surface = FONT_FALLOUT.render('%d' % k, True, COLOR_WHITE)
+                    # text_surface = FONT_FALLOUT.render('%d' % k, True, COLOR_WHITE)
+                    text_surface = FONT_FALLOUT.render(button_map.items(), True, COLOR_WHITE)
                     rect = text_surface.get_rect(center=(160, 120))
                     screen.blit(text_surface, rect)
                     # screen.blit(pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOnline.png')), SCREEN_SIZE), (0, 0))
-                    pygame.display.update()
-            # self.refresh()
+            self.refresh()
 
     def refresh(self):
         # Background
