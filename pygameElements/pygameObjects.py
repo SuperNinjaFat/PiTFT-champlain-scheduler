@@ -46,6 +46,7 @@ screen = pygame.display.set_mode(SCREEN_SIZE)
 # Initialize Events
 pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new data.
 pygame.time.set_timer(USEREVENT + 2, 10000)  # 120000)  # Every 2 minutes, switch the surface.
+pygame.time.set_timer(USEREVENT + 3, 6000)  # Every minute, refresh the clock.
 
 # Fonts
 # print(pygame.font.get_fonts())
@@ -54,7 +55,7 @@ if platform.system() is 'Windows':
     print("Windows fonts")
     #  TODO: Fix directory access outside of local directory
     FONT_FALLOUT = pygame.font.Font('r_fallouty.ttf', 30)
-    FONT_BM = pygame.font.Font('din1451alt.ttf', 30)
+    FONT_BM = pygame.font.Font('din1451alt.ttf', 8)
 elif platform.system() is 'Linux':
     print("Linux fonts")
     FONT_FALLOUT = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
@@ -68,6 +69,7 @@ print("didn't it work??")
 
 # colors
 COLOR_BLACK = 0, 0, 0
+COLOR_WHITE = 255, 255, 255
 COLOR_GRAY_19 = 31, 31, 31
 COLOR_GRAY_21 = 54, 54, 54
 COLOR_GRAY_41 = 105, 105, 105
@@ -86,17 +88,11 @@ class Content(Enum):
     SHUTTLE = 4
 
 
-class Sponsor:
-    def __init__(self, name="", desc="", img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))):
-        self.name = name
-        self.desc = desc
-        self.img = img
-
-
-class Movie:
-    def __init__(self, title="", desc="", img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))):
+class Card:
+    def __init__(self, title="", desc="", dim=[0,0], img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))):
         self.title = title
         self.desc = desc
+        self.dim = dim
         self.img = img
 
 
@@ -112,15 +108,17 @@ class Environment:
         # Initialize data buffers
         self.temp_data = None
         self.movies = []
-        self.sponsor = Sponsor
+        self.sponsor = Card
         # Surface buffer
         self.surf = None
         # Time Buffer
-        self.time_text = None
+        self.time_text = (None, None)
         # Content Switcher (Temperature First)
         self.content = Content.TEMPERATURE
 
     def menu(self):
+        # set time
+        self.pullTime()
         # download data #TODO: See if I can move this into def __init__
         self.pullData()
         # Display Temperature first
@@ -146,6 +144,8 @@ class Environment:
                     elif self.content is Content.SHUTTLE:
                         self.surf_shuttle()
                         self.content = Content.TEMPERATURE
+                if event.type == USEREVENT + 3:
+                    self.pullTime()
                 if event.type == pygame.QUIT:
                     crashed = True
                 # Quit
@@ -155,11 +155,15 @@ class Environment:
             self.refresh()
 
     def refresh(self):
+        # Background
         screen.blit(self.surf, (0, 0))
-
-        d = datetime.datetime.strptime(str(datetime.datetime.now().time()), "%H:%M:%S.%f")
-        self.time_text = FONT_BM.render(d.strftime("%I:%M:%S %p"), True, COLOR_ORANGE)
-        screen.blit(self.time_text, (70, 20))
+        # Clock
+        # Todo: make a backing to the text
+        clockBacking = pygame.Rect((0, 0), (37, 10))
+        pygame.draw.rect(screen, COLOR_WHITE, clockBacking, 0)
+        # screen.blit(pygame.draw.rect(screen, COLOR_GRAY_19, clockBacking, 0), (4, 4))
+        screen.blit(self.time_text[0], (2, 1))
+        screen.blit(self.time_text[1], (23, 1))
         pygame.display.update()
 
     def surf_startup(self):
@@ -183,6 +187,8 @@ class Environment:
         # TODO: https://www.mainstreetlanding.com/performing-arts-center/daily-rental-information/movies-at-main-street-landing/
         # TODO: https://stackoverflow.com/questions/18294711/extracting-images-from-html-pages-with-python
         print("Mainstreet Landing Movies")
+        # TODO: Make a sub-screen that allows you to flip through the content held in the movie cards.
+        # and scroll through movie descriptions
         pass
 
     def surf_shuttle(self):  # TODO: https://shuttle.champlain.edu/
@@ -268,8 +274,8 @@ class Environment:
         sponsor_raw = listings_raw.pop(-1)
         # download image (sponsor)
         downloadImage('sponsor.jpg', URL_MAINSTREET + "/" + str(sponsor_raw.contents[1].contents[1].contents[1].attrs['src']))
-        self.sponsor = Sponsor(
-                               name=str(sponsor_raw.contents[1].contents[1].contents[1].attrs['alt']),
+        self.sponsor = Card(
+                               title=str(sponsor_raw.contents[1].contents[1].contents[1].attrs['alt']),
                                # TODO: Parse description html (maybe allow it to italicize when printing it?)
                                desc=str(sponsor_raw.contents[1].contents[3].contents[1]),
                                # TODO: Parse image src into html link, download the image,
@@ -282,7 +288,7 @@ class Environment:
             m_image_name = 'movie' + str(listings_raw.index(listing)) + '.jpg'
             downloadImage(m_image_name,
                           URL_MAINSTREET + "/" + str(listing.contents[1].contents[1].contents[1].attrs['src']))
-            self.movies.append(Movie(
+            self.movies.append(Card(
                                      title=str(listing.contents[1].contents[3].contents[1].contents[0]),
                                      # TODO: Parse description html (maybe allow it to italicize when printing it?)
                                      desc=str(listing.contents[1].contents[3].contents[5]),
@@ -294,3 +300,7 @@ class Environment:
 
         # Pull image from Camnet
         downloadImage('burlington.jpg', 'https://hazecam.net/images/large/burlington_left.jpg')
+
+    def pullTime(self):
+        d = datetime.datetime.strptime(str(datetime.datetime.now().time()), "%H:%M:%S.%f")
+        self.time_text = (FONT_BM.render(d.strftime("%I:%M"), True, COLOR_ORANGE), FONT_BM.render(d.strftime("%p"), True, COLOR_ORANGE))
