@@ -26,11 +26,11 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 SCREEN_SIZE = 320, 240
 
 # PiTFT Button Map
-button_map = {23: (255, 0, 0), 22: (0, 255, 0), 27: (0, 0, 255), 18: (0, 0, 0)}
+button_map = (23, 22, 27, 18)
 
 # Setup the GPIOs as inputs with Pull Ups since the buttons are connected to GND
 GPIO.setmode(GPIO.BCM)
-for k in button_map.keys():
+for k in button_map:
     GPIO.setup(k, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 # TODO: Once buttons are soldered on: https://web.archive.org/web/20151027165018/http://jeremyblythe.blogspot.com/2014/09/raspberry-pi-pygame-ui-basics.html
 
@@ -153,16 +153,18 @@ class Environment:
                         pygame.quit()
             # Scan the buttons
             # COMMENT OUT FOR WINDOWS TESTING
-            for (k, v) in button_map.items():
+            for k in button_map:
                 if GPIO.input(k) == False:
-                    screen.fill(v)
-                    # text_surface = FONT_FALLOUT.render('%d' % k, True, COLOR_WHITE)
-                    text_surface = FONT_FALLOUT.render(str(button_map.items()), True, COLOR_WHITE)
-                    rect = text_surface.get_rect(center=(160, 120))
-                    screen.blit(text_surface, rect)
-                    # screen.blit(pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOnline.png')), SCREEN_SIZE), (0, 0))
-                    pygame.display.update()
-            # self.refresh()
+                    if k == button_map[0]:
+                        pygame.quit()
+                    if k == button_map[1]:
+                        pass
+                    if k == button_map[2]:
+                        pass
+                    if k == button_map[3]:
+                        pass
+                    # pygame.display.update()
+            self.refresh()
 
     def refresh(self):
         # Background
