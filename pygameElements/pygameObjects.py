@@ -40,11 +40,13 @@ os.putenv('SDL_MOUSEDRV', 'TSLIB')
 os.putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
 
 # Initialize Pygame
-print("HELLOOOOOOOO???")
+print("Before init")
 pygame.init()
+print("After init")
 pygame.mouse.set_visible(False)
+print("Before set_mode")
 screen = pygame.display.set_mode(SCREEN_SIZE)
-
+print("After set_mode")
 # Initialize Events
 pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new data.
 pygame.time.set_timer(USEREVENT + 2, 10000)  # 120000)  # Every 2 minutes, switch the surface.
