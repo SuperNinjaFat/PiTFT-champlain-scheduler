@@ -157,11 +157,12 @@ class Environment:
                 if GPIO.input(k) == False:
                     screen.fill(v)
                     # text_surface = FONT_FALLOUT.render('%d' % k, True, COLOR_WHITE)
-                    text_surface = FONT_FALLOUT.render(button_map.items(), True, COLOR_WHITE)
+                    text_surface = FONT_FALLOUT.render(str(button_map.items()), True, COLOR_WHITE)
                     rect = text_surface.get_rect(center=(160, 120))
                     screen.blit(text_surface, rect)
                     # screen.blit(pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOnline.png')), SCREEN_SIZE), (0, 0))
-            self.refresh()
+                    pygame.display.update()
+            # self.refresh()
 
     def refresh(self):
         # Background
