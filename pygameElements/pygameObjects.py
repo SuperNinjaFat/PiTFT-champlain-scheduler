@@ -50,6 +50,7 @@ pygame.time.set_timer(USEREVENT + 3, 6000)  # Every minute, refresh the clock.
 # Fonts
 # print(pygame.font.get_fonts())
 # print(platform.node())
+print(platform.system())
 if platform.system() is 'Windows':
     print("Windows fonts")
     #  TODO: Fix directory access outside of local directory
@@ -62,7 +63,7 @@ elif platform.system() is 'Linux':
 else:
     print("default fonts")
     FONT_FALLOUT = pygame.font.SysFont(None, 30)
-    FONT_BM = pygame.font.SysFont(None, 40)
+    FONT_BM = pygame.font.SysFont(None, 8)
 #  TODO: Fix Font not working on Raspberry Pi
 print("didn't it work??")
 
