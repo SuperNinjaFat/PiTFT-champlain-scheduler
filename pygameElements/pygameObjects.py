@@ -50,14 +50,15 @@ pygame.time.set_timer(USEREVENT + 3, 6000)  # Every minute, refresh the clock.
 # Fonts
 # print(pygame.font.get_fonts())
 print("1.) ", platform.node())
-print("2.) ", platform.system(), ": ", platform.system() is 'Linux ')
-print("3.) ", platform.node(), ": ", platform.node() is 'raspberrypi')
-if platform.system() is 'Windows':
+print("2.) ", platform.system(), ": ", platform.system() is "Linux")
+print("3.) ", platform.node(), ": ", platform.node() is "raspberrypi")
+print("4.) ", platform.node(), ": ", str(platform.node()) is "raspberrypi")
+if platform.system() is "Windows":
     print("Windows fonts")
     #  TODO: Fix directory access outside of local directory
     FONT_FALLOUT = pygame.font.Font('r_fallouty.ttf', 30)
     FONT_BM = pygame.font.Font('din1451alt.ttf', 8)
-elif platform.system() is 'Linux ':
+elif platform.system() is "Linux":
     print("Linux fonts")
     FONT_FALLOUT = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
     FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 8)
