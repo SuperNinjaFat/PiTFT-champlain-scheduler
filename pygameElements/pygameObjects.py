@@ -14,7 +14,8 @@ import requests
 from bs4 import BeautifulSoup
 from html.parser import HTMLParser
 
-# import RPi.GPIO as GPIO
+# COMMENT OUT FOR WINDOWS TESTING
+import RPi.GPIO as GPIO
 
 matplotlib.use("Agg")
 
@@ -28,9 +29,9 @@ SCREEN_SIZE = 320, 240
 button_map = {23: (255, 0, 0), 22: (0, 255, 0), 27: (0, 0, 255), 18: (0, 0, 0)}
 
 # Setup the GPIOs as inputs with Pull Ups since the buttons are connected to GND
-# GPIO.setmode(GPIO.BCM)
-# for k in button_map.keys():
-#     GPIO.setup(k, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setmode(GPIO.BCM)
+for k in button_map.keys():
+    GPIO.setup(k, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 # TODO: Once buttons are soldered on: https://web.archive.org/web/20151027165018/http://jeremyblythe.blogspot.com/2014/09/raspberry-pi-pygame-ui-basics.html
 
 # Innitialize OS Screen
@@ -151,6 +152,14 @@ class Environment:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
+            # Scan the buttons
+            for (k, v) in button_map.items():
+                if GPIO.input(k) == False:
+                    screen.fill(v)
+                    text_surface = FONT_FALLOUT.render('%d' % k, True, COLOR_WHITE)
+                    rect = text_surface.get_rect(center=(160, 120))
+                    screen.blit(text_surface, rect)
+                    # screen.blit(pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOnline.png')), SCREEN_SIZE), (0, 0))
             self.refresh()
 
     def refresh(self):
