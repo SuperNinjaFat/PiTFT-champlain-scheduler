@@ -302,4 +302,4 @@ class Environment:
 
     def pullTime(self):
         d = datetime.datetime.strptime(str(datetime.datetime.now().time()), "%H:%M:%S.%f")
-        self.time_text = (FONT_FALLOUT.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_FALLOUT.render(d.strftime("%p"), True, COLOR_BLACK))
+        self.time_text = (FONT_BM.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_BM.render(d.strftime("%p"), True, COLOR_BLACK))
