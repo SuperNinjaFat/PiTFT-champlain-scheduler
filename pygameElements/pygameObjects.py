@@ -49,10 +49,10 @@ pygame.time.set_timer(USEREVENT + 3, 6000)  # Every minute, refresh the clock.
 
 # Fonts
 # print(pygame.font.get_fonts())
-print("1.) ", platform.node())
-print("2.) ", platform.system(), ": ", platform.system() is "Linux")
-print("3.) ", platform.node(), ": ", platform.node() is "raspberrypi")
-print("4.) ", platform.node(), ": ", str(platform.node()) is "raspberrypi")
+print("1.) ", os.uname())
+print("2.) ", os.uname()[0], ": ", os.uname()[0] is "Linux")
+# print("3.) ", platform.node(), ": ", platform.node() is "raspberrypi")
+# print("4.) ", platform.node(), ": ", str(platform.node()) is "raspberrypi")
 if platform.system() is "Windows":
     print("Windows fonts")
     #  TODO: Fix directory access outside of local directory
@@ -306,4 +306,4 @@ class Environment:
 
     def pullTime(self):
         d = datetime.datetime.strptime(str(datetime.datetime.now().time()), "%H:%M:%S.%f")
-        self.time_text = (FONT_BM.render(d.strftime("%I:%M"), True, COLOR_ORANGE), FONT_BM.render(d.strftime("%p"), True, COLOR_ORANGE))
+        self.time_text = (FONT_BM.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_BM.render(d.strftime("%p"), True, COLOR_BLACK))
