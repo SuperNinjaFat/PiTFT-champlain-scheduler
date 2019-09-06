@@ -34,8 +34,7 @@ for k in button_map.keys():
     GPIO.setup(k, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 # TODO: Once buttons are soldered on: https://web.archive.org/web/20151027165018/http://jeremyblythe.blogspot.com/2014/09/raspberry-pi-pygame-ui-basics.html
 
-# Innitialize OS Screen
-# os.environ["SDL_FBDEV"] = "/dev/fb1"
+# Initialize OS Screen
 os.putenv('SDL_FBDEV', '/dev/fb1')
 os.putenv('SDL_MOUSEDRV', 'TSLIB')
 os.putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
@@ -160,7 +159,8 @@ class Environment:
                     rect = text_surface.get_rect(center=(160, 120))
                     screen.blit(text_surface, rect)
                     # screen.blit(pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOnline.png')), SCREEN_SIZE), (0, 0))
-            self.refresh()
+                    pygame.display.update()
+            # self.refresh()
 
     def refresh(self):
         # Background
