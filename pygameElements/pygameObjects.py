@@ -244,6 +244,7 @@ class Environment:
         for i, day in enumerate(dates):
             dates[i] = '{:%b-%d\n(%a)}'.format(datetime.datetime.strptime(str(dates[i]), '%Y-%m-%d %H:%M:%S'))
         ax.grid(True)
+        ax.set_ylim(50, 70)
         ax.plot(dates, flow)
         # print(flow)
         # print(dates)
@@ -269,7 +270,8 @@ class Environment:
         return pygame.image.fromstring(raw_data, SCREEN_SIZE, "RGB")
 
     def pullData(self):
-        ndays = 7
+        # 11 days
+        ndays = 11
         station_id = "04294500"
         param_id = "00010"
         datelist = pandas.date_range(end=pandas.datetime.today(), periods=ndays).tolist()
