@@ -6,6 +6,7 @@
         <list>
           <option value="start" />
           <option value="temperature.start.pygameObjects" />
+          <option value="pygameElements.pygameObjects.RPi" />
         </list>
       </option>
     </inspection_tool>

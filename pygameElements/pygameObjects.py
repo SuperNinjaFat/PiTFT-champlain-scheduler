@@ -13,9 +13,15 @@ from climata.usgs import DailyValueIO
 import requests
 from bs4 import BeautifulSoup
 from html.parser import HTMLParser
-
-# COMMENT OUT FOR WINDOWS TESTING
-import RPi.GPIO as GPIO
+import sys
+if platform.system() == "Windows":
+    import fake_rpi
+    sys.modules['RPi'] = fake_rpi.RPi     # Fake RPi (GPIO)
+    sys.modules['smbus'] = fake_rpi.smbus # Fake smbus (I2C)
+    from fake_rpi import toggle_print
+    toggle_print(False)
+# if platform.system() == "Linux":
+from RPi import GPIO
 
 matplotlib.use("Agg")
 
@@ -30,6 +36,7 @@ button_map = (23, 22, 27, 18)
 
 # Setup the GPIOs as inputs with Pull Ups since the buttons are connected to GND
 GPIO.setmode(GPIO.BCM)
+# GPIO.setmode(io.BCM)
 for k in button_map:
     GPIO.setup(k, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 # TODO: Once buttons are soldered on: https://web.archive.org/web/20151027165018/http://jeremyblythe.blogspot.com/2014/09/raspberry-pi-pygame-ui-basics.html
@@ -154,7 +161,7 @@ class Environment:
             # Scan the buttons
             # COMMENT OUT FOR WINDOWS TESTING
             for k in button_map:
-                if GPIO.input(k) == False:
+                if GPIO.input(k) == False and platform.system() == "Linux":
                     if k == button_map[0]:
                         pygame.quit()
                     if k == button_map[1]:
