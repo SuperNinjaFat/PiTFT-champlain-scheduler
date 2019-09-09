@@ -28,8 +28,9 @@ matplotlib.use("Agg")
 # Base Directory
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 
-# PiTFT Screen Size (320x240)
-SCREEN_SIZE = 320, 240
+# PiTFT Screen Dimension (320x240)
+DIM_SCREEN = 320, 240
+DIM_ICON = 10, 10  # Icon Dimensions
 
 # PiTFT Button Map
 button_map = (23, 22, 27, 18)
@@ -60,18 +61,18 @@ if platform.system() == "Windows":
     print("Windows fonts")
     #  TODO: Fix directory access outside of local directory
     FONT_FALLOUT = pygame.font.Font('r_fallouty.ttf', 30)
-    FONT_BM = pygame.font.Font('din1451alt.ttf', 8)
+    FONT_BM = pygame.font.Font('din1451alt.ttf', 10)
 elif platform.system() == "Linux":
     print("Linux fonts")
     FONT_FALLOUT = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
-    FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 8)
+    FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 10)
 else:
     print("default fonts")
     FONT_FALLOUT = pygame.font.SysFont(None, 30)
     FONT_BM = pygame.font.SysFont(None, 13)
 #  TODO: Fix Font not working on Raspberry Pi
 
-screen = pygame.display.set_mode(SCREEN_SIZE)
+screen = pygame.display.set_mode(DIM_SCREEN)
 
 # colors
 COLOR_BLACK = 0, 0, 0
@@ -85,6 +86,8 @@ COLOR_LAVENDER = 230, 230, 250
 # urls
 URL_MAINSTREET = "https://www.mainstreetlanding.com"
 
+# Icon Constants
+ICON_SLIDESHOW = 0  # Slideshow Icon
 
 # Content switching
 class Content(Enum):
@@ -119,8 +122,13 @@ class Environment:
         self.surf = None
         # Time Buffer
         self.time_text = (None, None)
+        # slideshow toggler
+        self.slideshow = True
         # Content Switcher (Temperature First)
         self.content = Content.TEMPERATURE
+        # Icons
+        self.icon = [pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')), DIM_ICON)  # Slideshow
+                          ]
 
     def menu(self):
         # set time
@@ -138,20 +146,9 @@ class Environment:
                     self.pullData()
                 # Every 2 minutes, change the surface
                 if event.type == USEREVENT + 2:
-                    if self.content is Content.TEMPERATURE:  # Next is TEMPERATURE
-                        self.surf_plot()
-                        self.content = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
-                    elif self.content is Content.PICTURE:
-                        self.surf_picture()
-                        self.content = Content.MAINSTREET  # Content(1 + self.content.value)  # Next is MAINSTREET
-                    elif self.content is Content.MAINSTREET:
-                        self.surf_mainstreet()
-                        self.content = Content.SHUTTLE  # Content(1 + self.content.value)  # Next is SHUTTLE
-                    elif self.content is Content.SHUTTLE:
-                        self.surf_shuttle()
-                        self.content = Content.TEMPERATURE
+                    self.setContent()
                 if event.type == USEREVENT + 3:
-                    self.pullTime()
+                    self.pullTime()  # TODO: Make time toggleable and an options menu to do it.
                 if event.type == pygame.QUIT:
                     crashed = True
                 # Quit
@@ -165,42 +162,54 @@ class Environment:
                     if k == button_map[0]:
                         pygame.quit()
                     if k == button_map[1]:
-                        pass
+                        self.toggleSlideshow()
                     if k == button_map[2]:
                         pass
                     if k == button_map[3]:
-                        # Reset the card timer
-                        pygame.time.set_timer(USEREVENT + 2, 10000)
+                        pass
                     # pygame.display.update()
             self.refresh()
+
+    def setContent(self):
+        if self.content is Content.TEMPERATURE:  # Next is TEMPERATURE
+            self.surf_plot()
+            self.content = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
+        elif self.content is Content.PICTURE:
+            self.surf_picture()
+            self.content = Content.MAINSTREET  # Content(1 + self.content.value)  # Next is MAINSTREET
+        elif self.content is Content.MAINSTREET:
+            self.surf_mainstreet()
+            self.content = Content.SHUTTLE  # Content(1 + self.content.value)  # Next is SHUTTLE
+        elif self.content is Content.SHUTTLE:
+            self.surf_shuttle()
+            self.content = Content.TEMPERATURE
 
     def refresh(self):
         # Background
         screen.blit(self.surf, (0, 0))
+
+        # Icons Todo: make icon bar toggleable in options
+        pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (DIM_SCREEN[0], 13)), 0)  # Icon bar backing
+        if self.slideshow:
+            screen.blit(self.icon[ICON_SLIDESHOW], (44, 1))
+
         # Clock
-        # Todo: make a backing to the text
-        clockBacking = pygame.Rect((0, 0), (37, 10))
-        pygame.draw.rect(screen, COLOR_WHITE, clockBacking, 0)
-        # screen.blit(pygame.draw.rect(screen, COLOR_GRAY_19, clockBacking, 0), (4, 4))
-        screen.blit(self.time_text[0], (2, 1))
-        screen.blit(self.time_text[1], (23, 1))
+        pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (40, 13)), 0)  # Clock backing
+        screen.blit(self.time_text[0], (2, 1))  # time text 12:00
+        screen.blit(self.time_text[1], (25, 1))  # time text am/pm
         pygame.display.update()
 
     def surf_startup(self):
         print("Startup")
-        image_startup = pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOnline.png'))
-        image_startup = pygame.transform.scale(image_startup, SCREEN_SIZE)
         # Set surface image
-        self.surf = image_startup
+        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOnline.png')), DIM_SCREEN)
 
     def surf_picture(self):
         # TODO: https://developers.google.com/drive/api/v3/manage-downloads
         # TODO: http://blog.vogella.com/2011/06/21/creating-bitmaps-from-the-internet-via-apache-httpclient/
         print("Picture Album")
-        #  TODO: Display image in graph
-        #  os.path.join(BASE_DIR, 'resource', 'burlington.jpg')
         # Set surface image
-        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'burlington.jpg')), SCREEN_SIZE)
+        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'burlington.jpg')), DIM_SCREEN)
         pass
 
     def surf_mainstreet(self):
@@ -226,7 +235,7 @@ class Environment:
         else:
             # Set surface image to offline
             self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png')),
-                                               SCREEN_SIZE)
+                                               DIM_SCREEN)
 
     def graph_temp(self):
         for series in self.temp_data:
@@ -267,7 +276,7 @@ class Environment:
         # close figure
         pylab.close(fig)
         # Set surface image
-        return pygame.image.fromstring(raw_data, SCREEN_SIZE, "RGB")
+        return pygame.image.fromstring(raw_data, DIM_SCREEN, "RGB")
 
     def pullData(self):
         # 11 days
@@ -326,3 +335,10 @@ class Environment:
     def pullTime(self):
         d = datetime.datetime.strptime(str(datetime.datetime.now().time()), "%H:%M:%S.%f")
         self.time_text = (FONT_BM.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_BM.render(d.strftime("%p"), True, COLOR_BLACK))
+
+    def toggleSlideshow(self):
+        if self.slideshow:
+            pygame.time.set_timer(USEREVENT + 2, 0)  # turn off the slideshow userevent
+        else:
+            pygame.time.set_timer(USEREVENT + 2, 10000)  # turn on the slideshow userevent
+        self.slideshow = not self.slideshow # toggle the slideshow bool
