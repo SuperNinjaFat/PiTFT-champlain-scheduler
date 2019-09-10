@@ -54,6 +54,7 @@ pygame.mouse.set_visible(False)
 pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new data.
 pygame.time.set_timer(USEREVENT + 2, 10000)  # 120000)  # Every 2 minutes, switch the surface.
 pygame.time.set_timer(USEREVENT + 3, 6000)  # Every minute, refresh the clock.
+# pygame.time.set_timer(USEREVENT + 4, 80)  # Not an event that needs to be set here, but just pointing out it exists.
 
 # Fonts
 # print(pygame.font.get_fonts())
@@ -88,6 +89,7 @@ URL_MAINSTREET = "https://www.mainstreetlanding.com"
 
 # Icon Constants
 ICON_SLIDESHOW = 0  # Slideshow Icon
+ICON_TEST = 1  # Slideshow Icon
 
 # Content switching
 class Content(Enum):
@@ -118,47 +120,46 @@ class Environment:
         self.temp_data = None
         self.movies = []
         self.sponsor = Card
-        # Surface buffer
-        self.surf = None
-        # Time Buffer
-        self.time_text = (None, None)
-        # slideshow toggler
-        self.slideshow = True
-        # Content Switcher (Temperature First)
-        self.content = Content.TEMPERATURE
+
+        self.surf = None  # Surface buffer
+        self.time_text = (None, None)  # Time Buffer
+        self.slideshow = True  # slideshow toggler
+        self.test = True  # Button sleep bool
+        self.content = Content.TEMPERATURE  # Content Switcher (Temperature First)
         # Icons
-        self.icon = [pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')), DIM_ICON)  # Slideshow
-                          ]
+        self.icon = [pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')), DIM_ICON),  # Slideshow
+                     pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'Mana.png')), DIM_ICON)  # Test
+                     ]
+        # Pull data from internet/system
+        self.pullTime()  # set time
+        self.pullData()  # download data
+
+        # You have to run a set-surface function before the slides start up.
+        self.surf_startup()  # Start with lake temperature
 
     def menu(self):
-        # set time
-        self.pullTime()
-        # download data #TODO: See if I can move this into def __init__
-        self.pullData()
-        # Display Temperature first
-        self.surf_startup()
-
         crashed = False
         while not crashed:
             for event in pygame.event.get():
                 # Every 8 hours, download data
-                if event.type == USEREVENT + 1:
+                if event.type == USEREVENT + 1:  # Activated every 2 minutes to change the surface
                     self.pullData()
-                # Every 2 minutes, change the surface
                 if event.type == USEREVENT + 2:
                     self.setContent()
                 if event.type == USEREVENT + 3:
                     self.pullTime()  # TODO: Make time toggleable and an options menu to do it.
+                if event.type == USEREVENT + 4:
+                    self.test = True  # Button time buffer
                 if event.type == pygame.QUIT:
                     crashed = True
+
                 # Quit
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
             # Scan the buttons
-            # COMMENT OUT FOR WINDOWS TESTING
             for k in button_map:
-                if GPIO.input(k) == False and platform.system() == "Linux":
+                if GPIO.input(k) == False and platform.system() == "Linux" and self.test:
                     if k == button_map[0]:
                         pygame.quit()
                     if k == button_map[1]:
@@ -168,6 +169,8 @@ class Environment:
                     if k == button_map[3]:
                         pass
                     # pygame.display.update()
+                    self.test = False
+                    pygame.time.set_timer(USEREVENT + 4, 200, once=True)  # TODO: Test this on raspberry pi.
             self.refresh()
 
     def setContent(self):
@@ -185,11 +188,12 @@ class Environment:
             self.content = Content.TEMPERATURE
 
     def refresh(self):
-        # Background
-        screen.blit(self.surf, (0, 0))
+        screen.blit(self.surf, (0, 0))  # Background
 
         # Icons Todo: make icon bar toggleable in options
         pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (DIM_SCREEN[0], 13)), 0)  # Icon bar backing
+        if not self.test:
+            screen.blit(self.icon[ICON_TEST], (56, 1))
         if self.slideshow:
             screen.blit(self.icon[ICON_SLIDESHOW], (44, 1))
 
