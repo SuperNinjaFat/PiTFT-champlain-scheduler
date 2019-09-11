@@ -184,7 +184,7 @@ class Environment:
                     # Whenever the user presses a button/interacts with the device, reset the sleep event.
                     pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
                     # Turn Backlight On
-                    os.system("sudo sh -c \'echo \"0\" > /sys/class/backlight/soc\:backlight/brightness\'")
+                    os.system("sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")
             self.refresh()
 
     def setContent(self):
