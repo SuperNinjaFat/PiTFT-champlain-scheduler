@@ -150,6 +150,7 @@ class Environment:
                     self.pullTime()  # TODO: Make time toggleable and an options menu to do it.
                 if event.type == USEREVENT + 4:
                     self.test = True  # Button time buffer
+                    pygame.time.set_timer(USEREVENT + 4, 0)  # TODO: Update to pygame 2.0.0dev3 to upgrade pygame.time.set_timer()
                 if event.type == pygame.QUIT:
                     crashed = True
 
@@ -168,9 +169,8 @@ class Environment:
                         pass
                     if k == button_map[3]:
                         pass
-                    # pygame.display.update()
                     self.test = False
-                    pygame.time.set_timer(USEREVENT + 4, 200, once=True)  # TODO: Test this on raspberry pi.
+                    pygame.time.set_timer(USEREVENT + 4, 200)
             self.refresh()
 
     def setContent(self):
