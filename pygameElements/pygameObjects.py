@@ -52,7 +52,7 @@ pygame.init()
 pygame.mouse.set_visible(False)
 # Initialize Events
 pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new data.
-pygame.time.set_timer(USEREVENT + 2, 10000)  # 120000)  # Every 2 minutes, switch the surface.
+pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds # 120000)  # Every 2 minutes, switch the surface.
 pygame.time.set_timer(USEREVENT + 3, 6000)  # Every minute, refresh the clock.
 # pygame.time.set_timer(USEREVENT + 4, 0)  # Not an event that needs to be set here, but just pointing out it exists.
 # pygame.time.set_timer(USEREVENT + 5, 0)  # Not an event that needs to be set here, but just pointing out it exists.
@@ -127,7 +127,7 @@ class Environment:
         self.slideshow = True  # slideshow toggler
         self.test = False  # Button sleep bool
         self.sleep = False  # Screen Sleep
-        self.content = Content.TEMPERATURE  # Content Switcher (Temperature First)
+        self.nextContent = Content.TEMPERATURE  # Content Switcher (Temperature First)
         # Icons
         self.icon = [pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')), DIM_ICON),  # Slideshow
                      pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'Mana.png')), DIM_ICON)  # Test
@@ -176,9 +176,11 @@ class Environment:
                     if k == button_map[1]:
                         self.toggleSlideshow()
                     if k == button_map[2]:
-                        pass
+                        self.setContent(prev=True)
+                        pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
                     if k == button_map[3]:
-                        pass
+                        self.setContent()
+                        pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
                     self.test = True
                     pygame.time.set_timer(USEREVENT + 4, 200)
                     # Whenever the user presses a button/interacts with the device, reset the sleep event.
@@ -187,19 +189,24 @@ class Environment:
                     os.system("sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")
             self.refresh()
 
-    def setContent(self):
-        if self.content is Content.TEMPERATURE:  # Next is TEMPERATURE
+
+    def setContent(self, prev=False):
+        if prev:
+            self.nextContent = Content[self.nextContent] - 1
+            if self.nextContent == 0:
+                self.nextContent = Content.SHUTTLE
+        if self.nextContent is Content.TEMPERATURE:  # Next is TEMPERATURE
             self.surf_plot()
-            self.content = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
-        elif self.content is Content.PICTURE:
+            self.nextContent = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
+        elif self.nextContent is Content.PICTURE:
             self.surf_picture()
-            self.content = Content.MAINSTREET  # Content(1 + self.content.value)  # Next is MAINSTREET
-        elif self.content is Content.MAINSTREET:
+            self.nextContent = Content.MAINSTREET  # Content(1 + self.content.value)  # Next is MAINSTREET
+        elif self.nextContent is Content.MAINSTREET:
             self.surf_mainstreet()
-            self.content = Content.SHUTTLE  # Content(1 + self.content.value)  # Next is SHUTTLE
-        elif self.content is Content.SHUTTLE:
+            self.nextContent = Content.SHUTTLE  # Content(1 + self.content.value)  # Next is SHUTTLE
+        elif self.nextContent is Content.SHUTTLE:
             self.surf_shuttle()
-            self.content = Content.TEMPERATURE
+            self.nextContent = Content.TEMPERATURE
 
     def refresh(self):
         screen.blit(self.surf, (0, 0))  # Background
