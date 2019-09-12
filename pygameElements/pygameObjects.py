@@ -192,19 +192,12 @@ class Environment:
                         self.backlight = True  # "backlight turn-on has been tripped"
             self.refresh()
 
-    def backlight_toggle(self):
-        if self.backlight:
-            os.system("sudo sh -c \'echo \"0\" > /sys/class/backlight/soc\:backlight/brightness\'")  # if bool, turn Off
-        else:
-            os.system(
-                "sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # if not bool, turn On
-
     def setContent(self, prev=False):
         if prev:
-            if self.nextContent.value == self.nextContent.value - 1:
+            if 0 == self.nextContent.value - 1:
                 self.nextContent = Content.SHUTTLE
             else:
-                self.nextContent = self.nextContent.value - 1
+                self.nextContent = Content(self.nextContent.value - 1)
         if self.nextContent is Content.TEMPERATURE:  # Next is TEMPERATURE
             self.surf_plot()
             self.nextContent = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
