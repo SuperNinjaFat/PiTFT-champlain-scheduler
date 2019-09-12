@@ -14,11 +14,14 @@ import requests
 from bs4 import BeautifulSoup
 from html.parser import HTMLParser
 import sys
+
 if platform.system() == "Windows":
     import fake_rpi
-    sys.modules['RPi'] = fake_rpi.RPi     # Fake RPi (GPIO)
-    sys.modules['smbus'] = fake_rpi.smbus # Fake smbus (I2C)
+
+    sys.modules['RPi'] = fake_rpi.RPi  # Fake RPi (GPIO)
+    sys.modules['smbus'] = fake_rpi.smbus  # Fake smbus (I2C)
     from fake_rpi import toggle_print
+
     toggle_print(False)
 # if platform.system() == "Linux":
 from RPi import GPIO
@@ -52,7 +55,7 @@ pygame.init()
 pygame.mouse.set_visible(False)
 # Initialize Events
 pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new data.
-pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds # 120000)  # Every 2 minutes, switch the surface.
+pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds # 120000)  # Every 10 seconds, switch the surface.
 pygame.time.set_timer(USEREVENT + 3, 6000)  # Every minute, refresh the clock.
 # pygame.time.set_timer(USEREVENT + 4, 0)  # Not an event that needs to be set here, but just pointing out it exists.
 # pygame.time.set_timer(USEREVENT + 5, 0)  # Not an event that needs to be set here, but just pointing out it exists.
@@ -92,6 +95,7 @@ URL_MAINSTREET = "https://www.mainstreetlanding.com"
 ICON_SLIDESHOW = 0  # Slideshow Icon
 ICON_TEST = 1  # Slideshow Icon
 
+
 # Content switching
 class Content(Enum):
     TEMPERATURE = 1
@@ -101,7 +105,8 @@ class Content(Enum):
 
 
 class Card:
-    def __init__(self, title="", desc="", dim=[0,0], img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))):
+    def __init__(self, title="", desc="", dim=[0, 0],
+                 img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))):
         self.title = title
         self.desc = desc
         self.dim = dim
@@ -122,19 +127,23 @@ class Environment:
         self.movies = []
         self.sponsor = Card
 
-        self.surf = None  # Surface buffer
+        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png')),
+                                           DIM_SCREEN)  # Set surface image to offline
         self.time_text = (None, None)  # Time Buffer
         self.slideshow = True  # slideshow toggler
         self.buttonDelay = False  # Button delay
         self.backlight = True  # Backlight is On
         self.nextContent = Content.TEMPERATURE  # Content Switcher (Temperature First)
         # Icons
-        self.icon = [pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')), DIM_ICON),  # Slideshow
-                     pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'Mana.png')), DIM_ICON)  # Test
+        self.icon = [pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')),
+                                            DIM_ICON),  # Slideshow
+                     pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'Mana.png')), DIM_ICON)
+                     # Test
                      ]
         # Pull data from internet/system
         self.pullTime()  # set time
         self.pullData()  # download data
+        self.graph_temp()  # Graph data
 
         # You have to run a set-surface function before the slides start up.
         self.surf_startup()  # Start with lake temperature
@@ -147,15 +156,17 @@ class Environment:
         while not crashed:
             for event in pygame.event.get():
                 # Every 8 hours, download data
-                if event.type == USEREVENT + 1:  # Activated every 2 minutes to change the surface
+                if event.type == USEREVENT + 1:  # Every 8 hours, download new data and render images.
                     self.pullData()
-                if event.type == USEREVENT + 2:
+                    self.graph_temp()
+                if event.type == USEREVENT + 2:  # 10 seconds # 120000)  # Every 10 seconds, switch the surface.
                     self.setContent()
-                if event.type == USEREVENT + 3:
+                if event.type == USEREVENT + 3:  # Every minute, refresh the clock.
                     self.pullTime()  # TODO: Make time toggleable and an options menu to do it.
                 if event.type == USEREVENT + 4:
                     self.buttonDelay = False  # Button time buffer
-                    pygame.time.set_timer(USEREVENT + 4, 0)  # TODO: Update to pygame 2.0.0dev3 to upgrade pygame.time.set_timer()
+                    pygame.time.set_timer(USEREVENT + 4,
+                                          0)  # TODO: Update to pygame 2.0.0dev3 to upgrade pygame.time.set_timer()
                 if event.type == USEREVENT + 5:
                     # self.backlight = True
                     # self.backlight_toggle()  # Turn Backlight Off
@@ -231,14 +242,16 @@ class Environment:
     def surf_startup(self):
         print("Startup")
         # Set surface image
-        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOnline.png')), DIM_SCREEN)
+        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOnline.png')),
+                                           DIM_SCREEN)
 
     def surf_picture(self):
         # TODO: https://developers.google.com/drive/api/v3/manage-downloads
         # TODO: http://blog.vogella.com/2011/06/21/creating-bitmaps-from-the-internet-via-apache-httpclient/
-        print("Picture Album")
+        print("Burlington Live Camera")
         # Set surface image
-        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'burlington.jpg')), DIM_SCREEN)
+        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'burlington.jpg')),
+                                           DIM_SCREEN)
         pass
 
     def surf_mainstreet(self):
@@ -254,17 +267,11 @@ class Environment:
         pass
 
     def surf_plot(self):
-        print("Lake Temperature")
-        # window = pygame.display.set_mode(SCREEN_SIZE, DOUBLEBUF)
-        # screen = pygame.display.get_surface()
+        print("Temperature: Lake")
 
-        # Create list of date-flow values TODO: Join the processes of re-downloading data and rendering the graph
-        if self.temp_data:
-            self.surf = self.graph_temp()  # TODO: Separate the process of applying the image and rendering the graph
-        else:
-            # Set surface image to offline
-            self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png')),
-                                               DIM_SCREEN)
+        # Create list of date-flow values
+        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'graph_temp_lake.png')),
+                                           DIM_SCREEN)
 
     def graph_temp(self):
         for series in self.temp_data:
@@ -304,12 +311,12 @@ class Environment:
 
         # close figure
         pylab.close(fig)
-        # Set surface image
-        return pygame.image.fromstring(raw_data, DIM_SCREEN, "RGB")
+        # Save surface image
+        pygame.image.save(pygame.image.fromstring(raw_data, DIM_SCREEN, "RGB"), os.path.join(BASE_DIR, 'resource', 'graph_temp_lake.png'))
 
-    def pullData(self):
-        # 11 days
-        ndays = 11
+    def pullData(self):  # TODO: Account for an error return
+        # Download graph data
+        ndays = 11  # 11 days
         station_id = "04294500"
         param_id = "00010"
         datelist = pandas.date_range(end=pandas.datetime.today(), periods=ndays).tolist()
@@ -325,49 +332,51 @@ class Environment:
             print(e)
         self.temp_data = data
 
-        # Pull image and text data from mainstreetlanding.com
+        # Download image and text data from mainstreetlanding.com
         html = requests.get(
             "https://www.mainstreetlanding.com/performing-arts-center/daily-rental-information/movies-at-main-street-landing/")
         soup = BeautifulSoup(html.text, features="html.parser")
         listings_raw = soup.findAll("article", {"class": "listing"})
-
-        sponsor_raw = listings_raw.pop(-1)
-        # download image (sponsor)
-        downloadImage('sponsor.jpg', URL_MAINSTREET + "/" + str(sponsor_raw.contents[1].contents[1].contents[1].attrs['src']))
+        # Download sponsor data
+        sponsor_raw = listings_raw.pop(-1)  # Remove end div because it's always the sponsor
+        downloadImage('sponsor.jpg',
+                      URL_MAINSTREET + "/" + str(sponsor_raw.contents[1].contents[1].contents[1].attrs['src']))
         self.sponsor = Card(
-                               title=str(sponsor_raw.contents[1].contents[1].contents[1].attrs['alt']),
-                               # TODO: Parse description html (maybe allow it to italicize when printing it?)
-                               desc=str(sponsor_raw.contents[1].contents[3].contents[1]),
-                               # TODO: Parse image src into html link, download the image,
-                               # and pygame.image.load() it into 'Sponsor.img'.
-                               # pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))
-                               img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'sponsor.jpg'))
-                               )
+            title=str(sponsor_raw.contents[1].contents[1].contents[1].attrs['alt']),
+            # TODO: Parse description html (maybe allow it to italicize when printing it?)
+            desc=str(sponsor_raw.contents[1].contents[3].contents[1]),
+            # TODO: Parse image src into html link, download the image,
+            # and pygame.image.load() it into 'Sponsor.img'.
+            # pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))
+            img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'sponsor.jpg'))
+        )
+        # Download movie data
         for listing in listings_raw:
-            # download image (movies)
             m_image_name = 'movie' + str(listings_raw.index(listing)) + '.jpg'
             downloadImage(m_image_name,
                           URL_MAINSTREET + "/" + str(listing.contents[1].contents[1].contents[1].attrs['src']))
             self.movies.append(Card(
-                                     title=str(listing.contents[1].contents[3].contents[1].contents[0]),
-                                     # TODO: Parse description html (maybe allow it to italicize when printing it?)
-                                     desc=str(listing.contents[1].contents[3].contents[5]),
-                                     # TODO: Parse image src into html link, download the image,
-                                     # and pygame.image.load() it into 'Movie.img'.
-                                     # pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))
-                                     img=pygame.image.load(os.path.join(BASE_DIR, 'resource', m_image_name))
-                                     ))
+                title=str(listing.contents[1].contents[3].contents[1].contents[0]),
+                # TODO: Parse description html (maybe allow it to italicize when printing it?)
+                desc=str(listing.contents[1].contents[3].contents[5]),
+                # TODO: Parse image src into html link, download the image,
+                # and pygame.image.load() it into 'Movie.img'.
+                # pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))
+                img=pygame.image.load(os.path.join(BASE_DIR, 'resource', m_image_name))
+            ))
 
-        # Pull image from Camnet
+        # Download image from Camnet
         downloadImage('burlington.jpg', 'https://hazecam.net/images/large/burlington_left.jpg')
+        # downloadImage('burlington.jpg', 'https://hazecam.net/images/large/burlington_right.jpg')
 
     def pullTime(self):
         d = datetime.datetime.strptime(str(datetime.datetime.now().time()), "%H:%M:%S.%f")
-        self.time_text = (FONT_BM.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_BM.render(d.strftime("%p"), True, COLOR_BLACK))
+        self.time_text = (
+        FONT_BM.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_BM.render(d.strftime("%p"), True, COLOR_BLACK))
 
     def toggleSlideshow(self):
         if self.slideshow:
             pygame.time.set_timer(USEREVENT + 2, 0)  # turn off the slideshow userevent
         else:
             pygame.time.set_timer(USEREVENT + 2, 10000)  # turn on the slideshow userevent
-        self.slideshow = not self.slideshow # toggle the slideshow bool
+        self.slideshow = not self.slideshow  # toggle the slideshow bool
