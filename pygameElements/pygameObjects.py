@@ -125,8 +125,9 @@ class Environment:
         self.surf = None  # Surface buffer
         self.time_text = (None, None)  # Time Buffer
         self.slideshow = True  # slideshow toggler
-        self.test = False  # Button sleep bool
+        self.buttonDelay = False  # Button delay
         self.sleep = False  # Screen Sleep
+        self.backlight = True  # Backlight is On
         self.nextContent = Content.TEMPERATURE  # Content Switcher (Temperature First)
         # Icons
         self.icon = [pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')), DIM_ICON),  # Slideshow
@@ -154,12 +155,11 @@ class Environment:
                 if event.type == USEREVENT + 3:
                     self.pullTime()  # TODO: Make time toggleable and an options menu to do it.
                 if event.type == USEREVENT + 4:
-                    self.test = False  # Button time buffer
+                    self.buttonDelay = False  # Button time buffer
                     pygame.time.set_timer(USEREVENT + 4, 0)  # TODO: Update to pygame 2.0.0dev3 to upgrade pygame.time.set_timer()
                 if event.type == USEREVENT + 5:
                     self.sleep = True
-                    # Turn Backlight Off
-                    os.system("sudo sh -c \'echo \"0\" > /sys/class/backlight/soc\:backlight/brightness\'")
+                    self.backlight_toggle()  # Turn Backlight Off
                     pygame.time.set_timer(USEREVENT + 5, 0)  # Shut off sleep timer
                 if event.type == pygame.QUIT:
                     crashed = True
@@ -170,7 +170,7 @@ class Environment:
                         pygame.quit()
             # Scan the buttons
             for k in button_map:
-                if GPIO.input(k) == False and platform.system() == "Linux" and not self.test:
+                if not GPIO.input(k) and platform.system() == "Linux" and not self.buttonDelay:
                     if k == button_map[0]:
                         pygame.quit()
                     if k == button_map[1]:
@@ -181,20 +181,26 @@ class Environment:
                     if k == button_map[3]:
                         self.setContent()
                         pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
-                    self.test = True
+                    self.buttonDelay = True
                     pygame.time.set_timer(USEREVENT + 4, 200)
                     # Whenever the user presses a button/interacts with the device, reset the sleep event.
                     pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
-                    # Turn Backlight On
-                    os.system("sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")
+                    self.backlight_toggle()  # Turn Backlight On
             self.refresh()
 
+    def backlight_toggle(self):
+        if self.backlight:
+            os.system("sudo sh -c \'echo \"0\" > /sys/class/backlight/soc\:backlight/brightness\'")  # Off
+        else:
+            os.system(
+                "sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # On
 
     def setContent(self, prev=False):
         if prev:
-            self.nextContent = Content[self.nextContent] - 1
-            if self.nextContent == 0:
+            if self.nextContent.value == self.nextContent.value - 1:
                 self.nextContent = Content.SHUTTLE
+            else:
+                self.nextContent = self.nextContent.value - 1
         if self.nextContent is Content.TEMPERATURE:  # Next is TEMPERATURE
             self.surf_plot()
             self.nextContent = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
@@ -213,7 +219,7 @@ class Environment:
 
         # Icons Todo: make icon bar toggleable in options
         pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (DIM_SCREEN[0], 13)), 0)  # Icon bar backing
-        if self.test:
+        if self.buttonDelay:
             screen.blit(self.icon[ICON_TEST], (56, 1))
         if self.slideshow:
             screen.blit(self.icon[ICON_SLIDESHOW], (44, 1))
