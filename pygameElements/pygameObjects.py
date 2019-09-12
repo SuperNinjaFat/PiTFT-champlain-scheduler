@@ -198,18 +198,19 @@ class Environment:
                 self.nextContent = Content.SHUTTLE
             else:
                 self.nextContent = Content(self.nextContent.value - 1)
-        if self.nextContent is Content.TEMPERATURE:  # Next is TEMPERATURE
-            self.surf_plot()
-            self.nextContent = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
-        elif self.nextContent is Content.PICTURE:
-            self.surf_picture()
-            self.nextContent = Content.MAINSTREET  # Content(1 + self.content.value)  # Next is MAINSTREET
-        elif self.nextContent is Content.MAINSTREET:
-            self.surf_mainstreet()
-            self.nextContent = Content.SHUTTLE  # Content(1 + self.content.value)  # Next is SHUTTLE
-        elif self.nextContent is Content.SHUTTLE:
-            self.surf_shuttle()
-            self.nextContent = Content.TEMPERATURE
+        else:
+            if self.nextContent is Content.TEMPERATURE:  # Next is TEMPERATURE
+                self.surf_plot()
+                self.nextContent = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
+            elif self.nextContent is Content.PICTURE:
+                self.surf_picture()
+                self.nextContent = Content.MAINSTREET  # Content(1 + self.content.value)  # Next is MAINSTREET
+            elif self.nextContent is Content.MAINSTREET:
+                self.surf_mainstreet()
+                self.nextContent = Content.SHUTTLE  # Content(1 + self.content.value)  # Next is SHUTTLE
+            elif self.nextContent is Content.SHUTTLE:
+                self.surf_shuttle()
+                self.nextContent = Content.TEMPERATURE
 
     def refresh(self):
         screen.blit(self.surf, (0, 0))  # Background
@@ -257,9 +258,9 @@ class Environment:
         # window = pygame.display.set_mode(SCREEN_SIZE, DOUBLEBUF)
         # screen = pygame.display.get_surface()
 
-        # Create list of date-flow values TODO: separate processes of re-downloading data and applying image
+        # Create list of date-flow values TODO: Join the processes of re-downloading data and rendering the graph
         if self.temp_data:
-            self.surf = self.graph_temp()
+            self.surf = self.graph_temp()  # TODO: Separate the process of applying the image and rendering the graph
         else:
             # Set surface image to offline
             self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png')),
