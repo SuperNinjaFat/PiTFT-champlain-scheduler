@@ -126,7 +126,6 @@ class Environment:
         self.time_text = (None, None)  # Time Buffer
         self.slideshow = True  # slideshow toggler
         self.buttonDelay = False  # Button delay
-        self.sleep = False  # Screen Sleep
         self.backlight = True  # Backlight is On
         self.nextContent = Content.TEMPERATURE  # Content Switcher (Temperature First)
         # Icons
@@ -158,8 +157,10 @@ class Environment:
                     self.buttonDelay = False  # Button time buffer
                     pygame.time.set_timer(USEREVENT + 4, 0)  # TODO: Update to pygame 2.0.0dev3 to upgrade pygame.time.set_timer()
                 if event.type == USEREVENT + 5:
-                    self.sleep = True
-                    self.backlight_toggle()  # Turn Backlight Off
+                    # self.backlight = True
+                    # self.backlight_toggle()  # Turn Backlight Off
+                    os.system("sudo sh -c \'echo \"0\" > /sys/class/backlight/soc\:backlight/brightness\'")  # Off
+                    self.backlight = False  # "backlight is not on"
                     pygame.time.set_timer(USEREVENT + 5, 0)  # Shut off sleep timer
                 if event.type == pygame.QUIT:
                     crashed = True
@@ -185,15 +186,18 @@ class Environment:
                     pygame.time.set_timer(USEREVENT + 4, 200)
                     # Whenever the user presses a button/interacts with the device, reset the sleep event.
                     pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
-                    self.backlight_toggle()  # Turn Backlight On
+                    # Prevents the backlight from constantly getting set on instead of just to turn it back on.
+                    if not self.backlight:  # if "backlight turn-on has been tripped"
+                        os.system("sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # On
+                        self.backlight = True  # "backlight turn-on has been tripped"
             self.refresh()
 
     def backlight_toggle(self):
         if self.backlight:
-            os.system("sudo sh -c \'echo \"0\" > /sys/class/backlight/soc\:backlight/brightness\'")  # Off
+            os.system("sudo sh -c \'echo \"0\" > /sys/class/backlight/soc\:backlight/brightness\'")  # if bool, turn Off
         else:
             os.system(
-                "sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # On
+                "sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # if not bool, turn On
 
     def setContent(self, prev=False):
         if prev:
