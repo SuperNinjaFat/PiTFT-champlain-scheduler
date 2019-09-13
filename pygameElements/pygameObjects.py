@@ -14,6 +14,7 @@ import requests
 from bs4 import BeautifulSoup
 from html.parser import HTMLParser
 import sys
+from PIL import Image
 
 if platform.system() == "Windows":
     import fake_rpi
@@ -53,12 +54,13 @@ os.putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
 # Initialize Pygame
 pygame.init()
 pygame.mouse.set_visible(False)
-# Initialize Events
-pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download new data.
+# Initialize Events TODO: Settings - Save slideshow incriments and frequency of downloading data.
+pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download temperature and movie data.
 pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds # 120000)  # Every 10 seconds, switch the surface.
 pygame.time.set_timer(USEREVENT + 3, 6000)  # Every minute, refresh the clock.
 # pygame.time.set_timer(USEREVENT + 4, 0)  # Not an event that needs to be set here, but just pointing out it exists.
 # pygame.time.set_timer(USEREVENT + 5, 0)  # Not an event that needs to be set here, but just pointing out it exists.
+pygame.time.set_timer(USEREVENT + 6, 900000)  # Every 15 minutes, download burlington pictures.
 
 # Fonts
 # print(pygame.font.get_fonts())
@@ -97,22 +99,24 @@ ICON_TEST = 1  # Slideshow Icon
 
 
 # Content switching
-class Content(Enum):
-    TEMPERATURE = 1
-    PICTURE = 2
-    MAINSTREET = 3
-    SHUTTLE = 4
+CONTENT_TEMPERATURE = 0
+CONTENT_PICTURE = 1
+CONTENT_MAINSTREET = 2
+CONTENT_SHUTTLE = 3
 
+PATH_IMAGE_OFFLINE = os.path.join(BASE_DIR, 'resource', 'PiOffline.png')
+PATH_IMAGE_STARTUP = os.path.join(BASE_DIR, 'resource', 'PiOnline.png')
+PATH_IMAGE_GRAPH_TEMPERATURE = os.path.join(BASE_DIR, 'resource', 'graph_temp_lake.png')
+PATH_IMAGE_BURLINGTON_LEFT = os.path.join(BASE_DIR, 'resource', 'burlington_left.jpg')
+PATH_IMAGE_BURLINGTON_RIGHT = os.path.join(BASE_DIR, 'resource', 'burlington_right.jpg')
+PATH_IMAGE_SPONSOR = os.path.join(BASE_DIR, 'resource', 'sponsor.jpg')
 
-C_TEMPERATURE = 0
-C_PICTURE = 1
-C_MAINSTREET = 2
-C_SHUTTLE = 3
-
+PATH_ICON_SLIDESHOW = os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')
+PATH_ICON_MANA = os.path.join(BASE_DIR, 'resource', 'Mana.png')
 
 class Card:
     def __init__(self, title="", desc="", dim=[0, 0],
-                 img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))):
+                 img=pygame.image.load(PATH_IMAGE_OFFLINE)):
         self.title = title
         self.desc = desc
         self.dim = dim
@@ -132,30 +136,31 @@ class Environment:
         self.temp_data = None
         self.movies = []
         self.sponsor = Card
-
-        self.contentList = [[C_TEMPERATURE, lambda func: self.surf_plot()],
-                            [C_PICTURE, lambda func: self.surf_picture()],
-                            [C_MAINSTREET, lambda func: self.surf_mainstreet()],
-                            [C_SHUTTLE, lambda func: self.surf_shuttle()]]
-        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png')),
+        # Define content list TODO: Settings - Save enabled/disabled content
+        self.contentList = [[CONTENT_TEMPERATURE, lambda func: self.surf_plot()],
+                            [CONTENT_PICTURE, lambda func: self.surf_picture()],
+                            # [CONTENT_MAINSTREET, lambda func: self.surf_mainstreet()],
+                            # [CONTENT_SHUTTLE, lambda func: self.surf_shuttle()]
+                            ]
+        self.surf = pygame.transform.scale(pygame.image.load(PATH_IMAGE_OFFLINE),
                                            DIM_SCREEN)  # Set surface image to offline
         self.time_text = (None, None)  # Time Buffer
         self.slideshow = True  # slideshow toggler
         self.buttonDelay = False  # Button delay
         self.backlight = True  # Backlight is On
-        self.cIndex = C_TEMPERATURE  # Start with lake temperature
-        # self.nextContent = Content.TEMPERATURE  # Content Switcher (Temperature First)
+        self.cIndex = CONTENT_TEMPERATURE  # Start with lake temperature
 
         # Icons
-        self.icon = [pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')),
+        self.icon = [pygame.transform.scale(pygame.image.load(PATH_ICON_SLIDESHOW),
                                             DIM_ICON),  # Slideshow
-                     pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'Mana.png')), DIM_ICON)
+                     pygame.transform.scale(pygame.image.load(PATH_ICON_MANA), DIM_ICON)
                      # Test
                      ]
         # Pull data from internet/system
-        self.pullTime()  # set time
-        self.pullData()  # download data
+        self.pullTime()  # Set time
+        self.pullData()  # Download data
         self.graph_temp()  # Graph data
+        self.pullImageBurlington()  # Download Burlington images
 
         # You have to run a set-surface function before the slides start up.
         self.contentList[self.cIndex][1](self)
@@ -186,6 +191,8 @@ class Environment:
                     os.system("sudo sh -c \'echo \"0\" > /sys/class/backlight/soc\:backlight/brightness\'")  # Off
                     self.backlight = False  # "backlight is not on"
                     pygame.time.set_timer(USEREVENT + 5, 0)  # Shut off sleep timer
+                if event.type == USEREVENT + 6:
+                    self.pullImageBurlington()  # Every 15 minutes, download burlington images.
                 if event.type == pygame.QUIT:
                     crashed = True
 
@@ -267,16 +274,14 @@ class Environment:
     def surf_startup(self):
         print("Startup")
         # Set surface image
-        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOnline.png')),
-                                           DIM_SCREEN)
+        self.surf = pygame.image.load(PATH_IMAGE_STARTUP)
 
     def surf_picture(self):
         # TODO: https://developers.google.com/drive/api/v3/manage-downloads
         # TODO: http://blog.vogella.com/2011/06/21/creating-bitmaps-from-the-internet-via-apache-httpclient/
         print("Burlington Live Camera")
         # Set surface image
-        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'burlington.jpg')),
-                                           DIM_SCREEN)
+        self.surf = pygame.image.load(PATH_IMAGE_BURLINGTON_LEFT)
 
     def surf_mainstreet(self):
         # TODO: https://www.mainstreetlanding.com/performing-arts-center/daily-rental-information/movies-at-main-street-landing/
@@ -290,7 +295,7 @@ class Environment:
 
     def surf_plot(self):
         print("Temperature: Lake")
-        self.surf = pygame.image.load(os.path.join(BASE_DIR, 'resource', 'graph_temp_lake.png'))
+        self.surf = pygame.image.load(PATH_IMAGE_GRAPH_TEMPERATURE)
 
     def graph_temp(self):
         for series in self.temp_data:  # Create list of date-flow values
@@ -365,10 +370,7 @@ class Environment:
             title=str(sponsor_raw.contents[1].contents[1].contents[1].attrs['alt']),
             # TODO: Parse description html (maybe allow it to italicize when printing it?)
             desc=str(sponsor_raw.contents[1].contents[3].contents[1]),
-            # TODO: Parse image src into html link, download the image,
-            # and pygame.image.load() it into 'Sponsor.img'.
-            # pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))
-            img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'sponsor.jpg'))
+            img=pygame.image.load(PATH_IMAGE_SPONSOR)
         )
         # Download movie data
         for listing in listings_raw:
@@ -379,15 +381,22 @@ class Environment:
                 title=str(listing.contents[1].contents[3].contents[1].contents[0]),
                 # TODO: Parse description html (maybe allow it to italicize when printing it?)
                 desc=str(listing.contents[1].contents[3].contents[5]),
-                # TODO: Parse image src into html link, download the image,
-                # and pygame.image.load() it into 'Movie.img'.
-                # pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))
+                # TODO: If no image is downloaded, assign img to PATH_IMAGE_OFFLINE
                 img=pygame.image.load(os.path.join(BASE_DIR, 'resource', m_image_name))
             ))
 
+
+    def pullImageBurlington(self):
         # Download image from Camnet
-        downloadImage('burlington.jpg', 'https://hazecam.net/images/large/burlington_left.jpg')
-        # downloadImage('burlington.jpg', 'https://hazecam.net/images/large/burlington_right.jpg')
+        downloadImage('burlington_left.jpg', 'https://hazecam.net/images/large/burlington_left.jpg')
+        self.resizeImage(PATH_IMAGE_BURLINGTON_LEFT, "JPEG", DIM_SCREEN)
+        # downloadImage('burlington_right.jpg', 'https://hazecam.net/images/large/burlington_right.jpg')
+        # self.resizeImage(PATH_IMAGE_BURLINGTON_RIGHT, "JPEG", DIM_SCREEN)
+
+    def resizeImage(self, imgPath, imgType, imgDim):
+        im = Image.open(imgPath)
+        im_resized = im.resize(imgDim, Image.ANTIALIAS)
+        im_resized.save(imgPath, imgType)
 
     def pullTime(self):
         d = datetime.datetime.strptime(str(datetime.datetime.now().time()), "%H:%M:%S.%f")
