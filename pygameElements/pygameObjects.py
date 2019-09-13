@@ -5,7 +5,6 @@ import os
 import platform
 import datetime
 import socket
-from enum import Enum
 import pygame
 from pygame.locals import *
 import pylab
@@ -15,14 +14,11 @@ from bs4 import BeautifulSoup
 from html.parser import HTMLParser
 import sys
 from PIL import Image
-
 if platform.system() == "Windows":
     import fake_rpi
-
     sys.modules['RPi'] = fake_rpi.RPi  # Fake RPi (GPIO)
     sys.modules['smbus'] = fake_rpi.smbus  # Fake smbus (I2C)
     from fake_rpi import toggle_print
-
     toggle_print(False)
 # if platform.system() == "Linux":
 from RPi import GPIO
