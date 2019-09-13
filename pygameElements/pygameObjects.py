@@ -104,6 +104,12 @@ class Content(Enum):
     SHUTTLE = 4
 
 
+C_TEMPERATURE = 0
+C_PICTURE = 1
+C_MAINSTREET = 2
+C_SHUTTLE = 3
+
+
 class Card:
     def __init__(self, title="", desc="", dim=[0, 0],
                  img=pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png'))):
@@ -127,13 +133,19 @@ class Environment:
         self.movies = []
         self.sponsor = Card
 
+        self.contentList = [[C_TEMPERATURE, lambda func: self.surf_plot()],
+                            [C_PICTURE, lambda func: self.surf_picture()],
+                            [C_MAINSTREET, lambda func: self.surf_mainstreet()],
+                            [C_SHUTTLE, lambda func: self.surf_shuttle()]]
         self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'PiOffline.png')),
                                            DIM_SCREEN)  # Set surface image to offline
         self.time_text = (None, None)  # Time Buffer
         self.slideshow = True  # slideshow toggler
         self.buttonDelay = False  # Button delay
         self.backlight = True  # Backlight is On
-        self.nextContent = Content.TEMPERATURE  # Content Switcher (Temperature First)
+        self.cIndex = C_TEMPERATURE  # Start with lake temperature
+        # self.nextContent = Content.TEMPERATURE  # Content Switcher (Temperature First)
+
         # Icons
         self.icon = [pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')),
                                             DIM_ICON),  # Slideshow
@@ -146,7 +158,8 @@ class Environment:
         self.graph_temp()  # Graph data
 
         # You have to run a set-surface function before the slides start up.
-        self.surf_startup()  # Start with lake temperature
+        self.contentList[self.cIndex][1](self)
+        # self.surf_startup()  # Start with lake temperature
         if platform.system() == "Linux":
             # Only use the sleep function for the raspberry pi
             pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
@@ -188,11 +201,13 @@ class Environment:
                     if k == button_map[1]:
                         self.toggleSlideshow()
                     if k == button_map[2]:
-                        self.setContent(prev=True)
-                        pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
+                        self.setContent(True)
+                        if self.slideshow:
+                            pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
                     if k == button_map[3]:
                         self.setContent()
-                        pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
+                        if self.slideshow:
+                            pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
                     self.buttonDelay = True
                     pygame.time.set_timer(USEREVENT + 4, 200)
                     # Whenever the user presses a button/interacts with the device, reset the sleep event.
@@ -205,23 +220,33 @@ class Environment:
 
     def setContent(self, prev=False):
         if prev:
-            if 0 == self.nextContent.value - 1:
-                self.nextContent = Content.SHUTTLE
-            else:
-                self.nextContent = Content(self.nextContent.value - 1)
+            self.cIndex = self.contentList.index(self.contentList[self.cIndex - 1])  # Iterate cIndex backwards
         else:
-            if self.nextContent is Content.TEMPERATURE:  # Next is TEMPERATURE
-                self.surf_plot()
-                self.nextContent = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
-            elif self.nextContent is Content.PICTURE:
-                self.surf_picture()
-                self.nextContent = Content.MAINSTREET  # Content(1 + self.content.value)  # Next is MAINSTREET
-            elif self.nextContent is Content.MAINSTREET:
-                self.surf_mainstreet()
-                self.nextContent = Content.SHUTTLE  # Content(1 + self.content.value)  # Next is SHUTTLE
-            elif self.nextContent is Content.SHUTTLE:
-                self.surf_shuttle()
-                self.nextContent = Content.TEMPERATURE
+            if self.cIndex + 1 >= len(self.contentList):  # Iterate cIndex forwards
+                self.cIndex = 0
+            else:
+                self.cIndex = self.cIndex + 1
+        self.contentList[self.cIndex][1](self)  # Run content function
+        # content = self.nextContent
+        # if prev:
+        #     if 0 == content.value - 1:
+        #         self.surf_mainstreet()
+        #         self.nextContent = Content.SHUTTLE
+        #     else:
+        #         self.nextContent = Content(content.value - 1)
+        # else:
+        #     if content is Content.TEMPERATURE:  # Next is TEMPERATURE
+        #         self.surf_plot()
+        #         self.nextContent = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
+        #     elif content is Content.PICTURE:
+        #         self.surf_picture()
+        #         self.nextContent = Content.MAINSTREET  # Content(1 + self.content.value)  # Next is MAINSTREET
+        #     elif content is Content.MAINSTREET:
+        #         self.surf_mainstreet()
+        #         self.nextContent = Content.SHUTTLE  # Content(1 + self.content.value)  # Next is SHUTTLE
+        #     elif content is Content.SHUTTLE:
+        #         self.surf_shuttle()
+        #         self.nextContent = Content.TEMPERATURE
 
     def refresh(self):
         screen.blit(self.surf, (0, 0))  # Background
@@ -229,7 +254,7 @@ class Environment:
         # Icons Todo: make icon bar toggleable in options
         pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (DIM_SCREEN[0], 13)), 0)  # Icon bar backing
         if self.buttonDelay:
-            screen.blit(self.icon[ICON_TEST], (56, 1))
+            screen.blit(self.icon[ICON_TEST], (59, 1))
         if self.slideshow:
             screen.blit(self.icon[ICON_SLIDESHOW], (44, 1))
 
@@ -252,7 +277,6 @@ class Environment:
         # Set surface image
         self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'burlington.jpg')),
                                            DIM_SCREEN)
-        pass
 
     def surf_mainstreet(self):
         # TODO: https://www.mainstreetlanding.com/performing-arts-center/daily-rental-information/movies-at-main-street-landing/
@@ -260,21 +284,16 @@ class Environment:
         print("Mainstreet Landing Movies")
         # TODO: Make a sub-screen that allows you to flip through the content held in the movie cards.
         # and scroll through movie descriptions
-        pass
 
     def surf_shuttle(self):  # TODO: https://shuttle.champlain.edu/
         print("Shuttle Map")
-        pass
 
     def surf_plot(self):
         print("Temperature: Lake")
-
-        # Create list of date-flow values
-        self.surf = pygame.transform.scale(pygame.image.load(os.path.join(BASE_DIR, 'resource', 'graph_temp_lake.png')),
-                                           DIM_SCREEN)
+        self.surf = pygame.image.load(os.path.join(BASE_DIR, 'resource', 'graph_temp_lake.png'))
 
     def graph_temp(self):
-        for series in self.temp_data:
+        for series in self.temp_data:  # Create list of date-flow values
             dates = [r[0] for r in series.data]
             flow = [r[1] for r in series.data]
         # render matplotgraph to bitmap
@@ -312,7 +331,8 @@ class Environment:
         # close figure
         pylab.close(fig)
         # Save surface image
-        pygame.image.save(pygame.image.fromstring(raw_data, DIM_SCREEN, "RGB"), os.path.join(BASE_DIR, 'resource', 'graph_temp_lake.png'))
+        pygame.image.save(pygame.image.fromstring(raw_data, DIM_SCREEN, "RGB"),
+                          os.path.join(BASE_DIR, 'resource', 'graph_temp_lake.png'))
 
     def pullData(self):  # TODO: Account for an error return
         # Download graph data
@@ -372,7 +392,7 @@ class Environment:
     def pullTime(self):
         d = datetime.datetime.strptime(str(datetime.datetime.now().time()), "%H:%M:%S.%f")
         self.time_text = (
-        FONT_BM.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_BM.render(d.strftime("%p"), True, COLOR_BLACK))
+            FONT_BM.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_BM.render(d.strftime("%p"), True, COLOR_BLACK))
 
     def toggleSlideshow(self):
         if self.slideshow:
