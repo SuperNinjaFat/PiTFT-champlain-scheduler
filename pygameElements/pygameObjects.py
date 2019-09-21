@@ -20,7 +20,10 @@ if platform.system() == "Windows":
     sys.modules['smbus'] = fake_rpi.smbus  # Fake smbus (I2C)
     from fake_rpi import toggle_print
     toggle_print(False)
-# if platform.system() == "Linux":
+if platform.system() == "Linux":
+    import lsb_release
+    DISTRO = lsb_release.get_distro_information()['CODENAME']
+
 from RPi import GPIO
 
 matplotlib.use("Agg")
@@ -29,15 +32,21 @@ matplotlib.use("Agg")
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 
 # PiTFT Screen Dimension (320x240)
-DIM_SCREEN = 320, 240
+if DISTRO == 'buster':
+    DIM_SCREEN = 480, 320
+    # PiTFT Button Map
+    # button_map = (23, 22, 27, 18)
+else:
+    DIM_SCREEN = 320, 240
+    # PiTFT Button Map
+    button_map = (23, 22, 27, 18)
+
 DIM_ICON = 10, 10  # Icon Dimensions
 
-# PiTFT Button Map
-button_map = (23, 22, 27, 18)
+
 
 # Setup the GPIOs as inputs with Pull Ups since the buttons are connected to GND
 GPIO.setmode(GPIO.BCM)
-# GPIO.setmode(io.BCM)
 for k in button_map:
     GPIO.setup(k, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 # TODO: Once buttons are soldered on: https://web.archive.org/web/20151027165018/http://jeremyblythe.blogspot.com/2014/09/raspberry-pi-pygame-ui-basics.html
@@ -229,26 +238,6 @@ class Environment:
             else:
                 self.cIndex = self.cIndex + 1
         self.contentList[self.cIndex][1](self)  # Run content function
-        # content = self.nextContent
-        # if prev:
-        #     if 0 == content.value - 1:
-        #         self.surf_mainstreet()
-        #         self.nextContent = Content.SHUTTLE
-        #     else:
-        #         self.nextContent = Content(content.value - 1)
-        # else:
-        #     if content is Content.TEMPERATURE:  # Next is TEMPERATURE
-        #         self.surf_plot()
-        #         self.nextContent = Content.PICTURE  # Content(1 + self.content.value) # Next is PICTURE
-        #     elif content is Content.PICTURE:
-        #         self.surf_picture()
-        #         self.nextContent = Content.MAINSTREET  # Content(1 + self.content.value)  # Next is MAINSTREET
-        #     elif content is Content.MAINSTREET:
-        #         self.surf_mainstreet()
-        #         self.nextContent = Content.SHUTTLE  # Content(1 + self.content.value)  # Next is SHUTTLE
-        #     elif content is Content.SHUTTLE:
-        #         self.surf_shuttle()
-        #         self.nextContent = Content.TEMPERATURE
 
     def refresh(self):
         screen.blit(self.surf, (0, 0))  # Background
