@@ -5,7 +5,7 @@ setup(
     packages=find_packages(),
 
     install_requires=['pygame',
-                      'python3-pandas',
+                      'pandas',
                       'matplotlib',
                       'datetime',
                       'climata',
