@@ -8,7 +8,6 @@ setup(
                       'pandas',
                       'matplotlib',
                       'datetime',
-                      'pylab',
                       'climata',
                       'requests',
                       'bs4',

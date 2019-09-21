@@ -1,5 +1,6 @@
 import pandas
 import matplotlib
+import matplotlib.pyplot
 import matplotlib.backends.backend_agg as agg
 import os
 import platform
@@ -7,7 +8,6 @@ import datetime
 import socket
 import pygame
 from pygame.locals import *
-import pylab
 from climata.usgs import DailyValueIO
 import requests
 from bs4 import BeautifulSoup
@@ -20,6 +20,7 @@ if platform.system() == "Windows":
     sys.modules['smbus'] = fake_rpi.smbus  # Fake smbus (I2C)
     from fake_rpi import toggle_print
     toggle_print(False)
+DISTRO = ""
 if platform.system() == "Linux":
     import lsb_release
     DISTRO = lsb_release.get_distro_information()['CODENAME']
@@ -286,7 +287,7 @@ class Environment:
             dates = [r[0] for r in series.data]
             flow = [r[1] for r in series.data]
         # render matplotgraph to bitmap
-        fig = pylab.figure(figsize=[6.4, 4.8],  # Inches
+        fig = matplotlib.pyplot.figure(figsize=[6.4, 4.8],  # Inches
                            dpi=50,  # 100 dots per inch, so the resulting buffer is 400x400 pixels
                            )
         ax = fig.gca()
@@ -318,7 +319,7 @@ class Environment:
         raw_data = renderer.tostring_rgb()
 
         # close figure
-        pylab.close(fig)
+        matplotlib.pyplot.close(fig)
         # Save surface image
         pygame.image.save(pygame.image.fromstring(raw_data, DIM_SCREEN, "RGB"),
                           os.path.join(BASE_DIR, 'resource', 'graph_temp_lake.png'))
