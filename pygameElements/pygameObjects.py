@@ -111,11 +111,10 @@ PATH_ICON_SLIDESHOW = os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')
 PATH_ICON_MANA = os.path.join(BASE_DIR, 'resource', 'Mana.png')
 
 class Card:
-    def __init__(self, title="", desc="", dim=[0, 0],
+    def __init__(self, title="", desc="",
                  img=pygame.image.load(PATH_IMAGE_OFFLINE)):
         self.title = title
         self.desc = desc
-        self.dim = dim
         self.img = img
 
 
@@ -362,6 +361,8 @@ class Environment:
         sponsor_raw = listings_raw.pop(-1)  # Remove end div because it's always the sponsor
         downloadImage('sponsor.jpg',
                       URL_MAINSTREET + "/" + str(sponsor_raw.contents[1].contents[1].contents[1].attrs['src']))
+        im = Image.open(PATH_IMAGE_SPONSOR)  # Rescale the image to fit into the screen
+        self.resizeImage(PATH_IMAGE_SPONSOR, "JPEG", self.scale(constraintH=80, size=im.size))
         self.sponsor = Card(
             title=str(sponsor_raw.contents[1].contents[1].contents[1].attrs['alt']),
             # TODO: Parse description html (maybe allow it to italicize when printing it?)
@@ -371,14 +372,21 @@ class Environment:
         # Download movie data
         for listing in listings_raw:
             m_image_name = 'movie' + str(listings_raw.index(listing)) + '.jpg'
+            movieImagePath = os.path.join(BASE_DIR, 'resource', m_image_name)
             downloadImage(m_image_name,
                           URL_MAINSTREET + "/" + str(listing.contents[1].contents[1].contents[1].attrs['src']))
+
+            im = Image.open(movieImagePath)  # Rescale the image to fit into the screen
+            self.resizeImage(movieImagePath, "JPEG", self.scale(constraintH=80, size=im.size))
+
+
             self.movies.append(Card(
                 title=str(listing.contents[1].contents[3].contents[1].contents[0]),
                 # TODO: Parse description html (maybe allow it to italicize when printing it?)
                 desc=str(listing.contents[1].contents[3].contents[5]),
                 # TODO: If no image is downloaded, assign img to PATH_IMAGE_OFFLINE
-                img=pygame.image.load(os.path.join(BASE_DIR, 'resource', m_image_name))
+                img=pygame.image.load(movieImagePath),
+
             ))
 
 
@@ -405,3 +413,6 @@ class Environment:
         else:
             pygame.time.set_timer(USEREVENT + 2, 10000)  # turn on the slideshow userevent
         self.slideshow = not self.slideshow  # toggle the slideshow bool
+
+    def scale(self, constraintH, size):
+        return [int(size[0] / (size[1] / constraintH)), constraintH]
