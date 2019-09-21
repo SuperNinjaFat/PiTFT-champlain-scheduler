@@ -13,15 +13,16 @@ from climata.usgs import DailyValueIO
 import requests
 from bs4 import BeautifulSoup
 from html.parser import HTMLParser
-from PIL import Image
 DISTRO = ""
 if platform.system() == "Windows":
+    from PIL import Image
     import fake_rpi
     sys.modules['RPi'] = fake_rpi.RPi  # Fake RPi (GPIO)
     sys.modules['smbus'] = fake_rpi.smbus  # Fake smbus (I2C)
     from fake_rpi import toggle_print
     toggle_print(False)
 elif platform.system() == "Linux":
+    from Pillow import Image
     import lsb_release
     DISTRO = lsb_release.get_distro_information()['CODENAME']
 
