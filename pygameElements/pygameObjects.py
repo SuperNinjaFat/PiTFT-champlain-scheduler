@@ -1,9 +1,20 @@
+import sys
+import platform
+DISTRO = ""
+if platform.system() == "Windows":
+    import fake_rpi
+    sys.modules['RPi'] = fake_rpi.RPi  # Fake RPi (GPIO)
+    sys.modules['smbus'] = fake_rpi.smbus  # Fake smbus (I2C)
+    from fake_rpi import toggle_print
+    toggle_print(False)
+elif platform.system() == "Linux":
+    import lsb_release
+    DISTRO = lsb_release.get_distro_information()['CODENAME']
 import pandas
 import matplotlib
 import matplotlib.pyplot
 import matplotlib.backends.backend_agg as agg
 import os
-import platform
 import datetime
 import socket
 import pygame
@@ -12,18 +23,7 @@ from climata.usgs import DailyValueIO
 import requests
 from bs4 import BeautifulSoup
 from html.parser import HTMLParser
-import sys
 from PIL import Image
-if platform.system() == "Windows":
-    import fake_rpi
-    sys.modules['RPi'] = fake_rpi.RPi  # Fake RPi (GPIO)
-    sys.modules['smbus'] = fake_rpi.smbus  # Fake smbus (I2C)
-    from fake_rpi import toggle_print
-    toggle_print(False)
-DISTRO = ""
-if platform.system() == "Linux":
-    import lsb_release
-    DISTRO = lsb_release.get_distro_information()['CODENAME']
 
 from RPi import GPIO
 
@@ -34,7 +34,7 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 
 # PiTFT Screen Dimension (320x240)
 if DISTRO == 'buster':
-    DIM_SCREEN = 480, 320
+    DIM_SCREEN = 480,
     # PiTFT Button Map
     # button_map = (23, 22, 27, 18)
 else:
