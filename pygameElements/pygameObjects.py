@@ -1,15 +1,5 @@
 import sys
 import platform
-DISTRO = ""
-if platform.system() == "Windows":
-    import fake_rpi
-    sys.modules['RPi'] = fake_rpi.RPi  # Fake RPi (GPIO)
-    sys.modules['smbus'] = fake_rpi.smbus  # Fake smbus (I2C)
-    from fake_rpi import toggle_print
-    toggle_print(False)
-elif platform.system() == "Linux":
-    import lsb_release
-    DISTRO = lsb_release.get_distro_information()['CODENAME']
 import pandas
 import matplotlib
 import matplotlib.pyplot
@@ -24,6 +14,16 @@ import requests
 from bs4 import BeautifulSoup
 from html.parser import HTMLParser
 from PIL import Image
+DISTRO = ""
+if platform.system() == "Windows":
+    import fake_rpi
+    sys.modules['RPi'] = fake_rpi.RPi  # Fake RPi (GPIO)
+    sys.modules['smbus'] = fake_rpi.smbus  # Fake smbus (I2C)
+    from fake_rpi import toggle_print
+    toggle_print(False)
+elif platform.system() == "Linux":
+    import lsb_release
+    DISTRO = lsb_release.get_distro_information()['CODENAME']
 
 from RPi import GPIO
 

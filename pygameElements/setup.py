@@ -11,11 +11,11 @@ setup(
                       'climata',
                       'requests',
                       'bs4',
-                      'html',
                       'PIL',
                       # 'platform',
                       # 'socket',
                       # 'sys',
+                      # 'html',
                       # 'fake_rpi',
                       ]
 )
