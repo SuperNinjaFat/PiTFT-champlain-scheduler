@@ -16,8 +16,8 @@ setup(
                       'requests',
                       'bs4',
                       'html',
-                      'sys',
                       'PIL',
+                      # 'sys',
                       # 'fake_rpi',
                       ]
 )
