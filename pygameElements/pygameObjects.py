@@ -13,40 +13,55 @@ from PIL import Image
 from climata.usgs import DailyValueIO
 import requests
 from bs4 import BeautifulSoup
+
 # from html.parser import HTMLParser
-DISTRO = ""
+DIST = ""
+
 
 if platform.system() == "Windows":
     import fake_rpi
+
     sys.modules['RPi'] = fake_rpi.RPi  # Fake RPi (GPIO)
     sys.modules['smbus'] = fake_rpi.smbus  # Fake smbus (I2C)
     from fake_rpi import toggle_print
+
     toggle_print(False)
 from RPi import GPIO
+
 if platform.system() == "Linux":
-    DISTRO = GPIO.RPI_INFO['REVISION']  # Inspect RPi Revisions:
+    DIST = GPIO.RPI_INFO['REVISION']  # Inspect RPi Revisions:
     # https://www.raspberrypi.org/documentation/hardware/raspberrypi/revision-codes/README.md
 
 matplotlib.use("Agg")
 
-# Base Directory
-BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
+# Directories
+DIR_BASE = os.path.join(os.path.dirname(__file__), '..')  # Base Directory
+# DIR_RESOURCE = os.path.join(DIR_BASE, 'resource')
+
+# Paths
+PATH_IMAGE_OFFLINE = os.path.join(os.path.join(DIR_BASE, 'resource'), 'PiOffline.png')
+PATH_IMAGE_STARTUP = os.path.join(os.path.join(DIR_BASE, 'resource'), 'PiOnline.png')
+PATH_IMAGE_GRAPH_TEMPERATURE = os.path.join(os.path.join(DIR_BASE, 'resource'), 'graph_temp_lake.png')
+PATH_IMAGE_BURLINGTON_LEFT = os.path.join(os.path.join(DIR_BASE, 'resource'), 'burlington_left.jpg')
+PATH_IMAGE_BURLINGTON_RIGHT = os.path.join(os.path.join(DIR_BASE, 'resource'), 'burlington_right.jpg')
+PATH_IMAGE_SPONSOR = os.path.join(os.path.join(DIR_BASE, 'resource'), 'sponsor.jpg')
+PATH_ICON_SLIDESHOW = os.path.join(os.path.join(DIR_BASE, 'resource'), 'mode_slideshow.png')
+PATH_ICON_MANA = os.path.join(os.path.join(DIR_BASE, 'resource'), 'Mana.png')
 
 # PiTFT Button Map
 button_map = (23, 22, 27, 18)
 
 # PiTFT Screen Dimensions
-if DISTRO == 'a020d3':  # Model 3B+
+if DIST == 'a020d3':  # Model 3B+
     DIM_SCREEN = 480, 320  # 3.5" = (320x240)
     # PiTFT Button Map
     # button_map = (23, 22, 27, 18)
-elif DISTRO == '000e':  #  Model B, Revision 2
+elif DIST == '000e':  # Model B, Revision 2
     DIM_SCREEN = 320, 240  # 2.8" = (320x240)
 else:
     DIM_SCREEN = 960, 640  # Desktop dimensions
 
 DIM_ICON = 10, 10  # Icon Dimensions
-
 
 # Setup the GPIOs as inputs with Pull Ups since the buttons are connected to GND
 GPIO.setmode(GPIO.BCM)
@@ -75,8 +90,8 @@ pygame.time.set_timer(USEREVENT + 6, 900000)  # Every 15 minutes, download burli
 if platform.system() == "Windows":
     print("Windows fonts")
     #  TODO: Fix directory access outside of local directory
-    FONT_FALLOUT = pygame.font.Font('r_fallouty.ttf', 30)
-    FONT_BM = pygame.font.Font('din1451alt.ttf', 10)
+    FONT_FALLOUT = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'r_fallouty.ttf'), 30)
+    FONT_BM = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 10)
 elif platform.system() == "Linux":
     print("Linux fonts")
     FONT_FALLOUT = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
@@ -105,22 +120,12 @@ URL_MAINSTREET = "https://www.mainstreetlanding.com"
 ICON_SLIDESHOW = 0  # Slideshow Icon
 ICON_TEST = 1  # Slideshow Icon
 
-
 # Content switching
 CONTENT_TEMPERATURE = 0
 CONTENT_PICTURE = 1
 CONTENT_MAINSTREET = 2
 CONTENT_SHUTTLE = 3
 
-PATH_IMAGE_OFFLINE = os.path.join(BASE_DIR, 'resource', 'PiOffline.png')
-PATH_IMAGE_STARTUP = os.path.join(BASE_DIR, 'resource', 'PiOnline.png')
-PATH_IMAGE_GRAPH_TEMPERATURE = os.path.join(BASE_DIR, 'resource', 'graph_temp_lake.png')
-PATH_IMAGE_BURLINGTON_LEFT = os.path.join(BASE_DIR, 'resource', 'burlington_left.jpg')
-PATH_IMAGE_BURLINGTON_RIGHT = os.path.join(BASE_DIR, 'resource', 'burlington_right.jpg')
-PATH_IMAGE_SPONSOR = os.path.join(BASE_DIR, 'resource', 'sponsor.jpg')
-
-PATH_ICON_SLIDESHOW = os.path.join(BASE_DIR, 'resource', 'mode_slideshow.png')
-PATH_ICON_MANA = os.path.join(BASE_DIR, 'resource', 'Mana.png')
 
 class Card:
     def __init__(self, title="", desc="",
@@ -132,7 +137,7 @@ class Card:
 
 # TODO: Error Checking requests.get() error
 def downloadImage(output, address):
-    f = open(os.path.join(BASE_DIR, 'resource', output), 'wb')
+    f = open(os.path.join(os.path.join(DIR_BASE, 'resource'), output), 'wb')
     f.write(requests.get(address).content)
     f.close()
 
@@ -193,8 +198,6 @@ class Environment:
                     pygame.time.set_timer(USEREVENT + 4,
                                           0)  # TODO: Update to pygame 2.0.0dev3 to upgrade pygame.time.set_timer()
                 if event.type == USEREVENT + 5:
-                    # self.backlight = True
-                    # self.backlight_toggle()  # Turn Backlight Off
                     os.system("sudo sh -c \'echo \"0\" > /sys/class/backlight/soc\:backlight/brightness\'")  # Off
                     self.backlight = False  # "backlight is not on"
                     pygame.time.set_timer(USEREVENT + 5, 0)  # Shut off sleep timer
@@ -206,10 +209,12 @@ class Environment:
                 # Quit
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
+                        if platform.system() == "Linux":
+                            os.system("sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # On
                         pygame.quit()
             # Scan the buttons
-            for k in button_map:
-                if not GPIO.input(k) and platform.system() == "Linux" and not self.buttonDelay:
+            for k in button_map:  # TODO: IMPLEMENT BUTTONS FOR ALL DISTRIBUTIONS
+                if not GPIO.input(k) and not self.buttonDelay and DIST == "a020d3":  # platform.system() == "Linux":
                     if k == button_map[0]:
                         pygame.quit()
                     if k == button_map[1]:
@@ -289,9 +294,9 @@ class Environment:
             dates = [r[0] for r in series.data]
             flow = [r[1] for r in series.data]
         # render matplotgraph to bitmap
-        fig = matplotlib.pyplot.figure(figsize=[DIM_SCREEN[0]*(0.02), DIM_SCREEN[1]*(0.02)],#6.4, 4.8],  # Inches
-                           dpi=50,  # 100 dots per inch, so the resulting buffer is 400x400 pixels
-                           )
+        fig = matplotlib.pyplot.figure(figsize=[DIM_SCREEN[0] * (0.02), DIM_SCREEN[1] * (0.02)],  # 6.4, 4.8],  # Inches
+                                       dpi=50,  # 100 dots per inch, so the resulting buffer is 400x400 pixels
+                                       )
         ax = fig.gca()
         # Convert Celsius to Fahrenheit
         for i, cel in enumerate(flow):
@@ -324,7 +329,7 @@ class Environment:
         matplotlib.pyplot.close(fig)
         # Save surface image
         pygame.image.save(pygame.image.fromstring(raw_data, DIM_SCREEN, "RGB"),
-                          os.path.join(BASE_DIR, 'resource', 'graph_temp_lake.png'))
+                          os.path.join(os.path.join(DIR_BASE, 'resource'), 'graph_temp_lake.png'))
 
     def pullData(self):  # TODO: Account for an error return
         # Download graph data
@@ -364,13 +369,12 @@ class Environment:
         # Download movie data
         for listing in listings_raw:
             m_image_name = 'movie' + str(listings_raw.index(listing)) + '.jpg'
-            movieImagePath = os.path.join(BASE_DIR, 'resource', m_image_name)
+            movieImagePath = os.path.join(os.path.join(DIR_BASE, 'resource'), m_image_name)
             downloadImage(m_image_name,
                           URL_MAINSTREET + "/" + str(listing.contents[1].contents[1].contents[1].attrs['src']))
 
             im = Image.open(movieImagePath)  # Rescale the image to fit into the screen
             self.resizeImage(movieImagePath, "JPEG", self.scale(constraintH=80, size=im.size))
-
 
             self.movies.append(Card(
                 title=str(listing.contents[1].contents[3].contents[1].contents[0]),
@@ -380,7 +384,6 @@ class Environment:
                 img=pygame.image.load(movieImagePath),
 
             ))
-
 
     def pullImageBurlington(self):
         # Download image from Camnet
