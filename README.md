@@ -2,15 +2,22 @@
 Gets the temperature of the lake in Lake Champlain and displays it to a raspberry pi screen.
 
 # Required Libraries:
-Climata https://pypi.org/project/climata/
-
-matplotlib
 
 pygame
 
-pylab
+matplotlib
 
-pandas
+datetime
+
+climata
+
+requests
+
+bs4
+
+pillow
+
+pandas (If you have problems, install it separately with "pip3 install python3-pandas")
 
 # Startup:
 Run:
