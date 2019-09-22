@@ -198,6 +198,7 @@ class Environment:
                     pygame.time.set_timer(USEREVENT + 4,
                                           0)  # TODO: Update to pygame 2.0.0dev3 to upgrade pygame.time.set_timer()
                 if event.type == USEREVENT + 5:
+                    print("Sleep mode activated")
                     os.system("sudo sh -c \'echo \"0\" > /sys/class/backlight/soc\:backlight/brightness\'")  # Off
                     self.backlight = False  # "backlight is not on"
                     pygame.time.set_timer(USEREVENT + 5, 0)  # Shut off sleep timer
@@ -213,8 +214,8 @@ class Environment:
                             os.system("sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # On
                         pygame.quit()
             # Scan the buttons
-            for k in button_map:  # TODO: IMPLEMENT BUTTONS FOR ALL DISTRIBUTIONS
-                if not GPIO.input(k) and not self.buttonDelay and DIST == "a020d3":  # platform.system() == "Linux":
+            for k in button_map:  # TODO: IMPLEMENT BUTTONS FOR ALL PI PLATFORMS
+                if not GPIO.input(k) and not self.buttonDelay and DIST == "000e":  # platform.system() == "Linux":
                     if k == button_map[0]:
                         pygame.quit()
                     if k == button_map[1]:
