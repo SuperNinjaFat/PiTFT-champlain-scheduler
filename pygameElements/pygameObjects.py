@@ -12,7 +12,7 @@ from pygame.locals import *
 from climata.usgs import DailyValueIO
 import requests
 from bs4 import BeautifulSoup
-from html.parser import HTMLParser
+# from html.parser import HTMLParser
 DISTRO = ""
 if platform.system() == "Windows":
     from PIL import Image
