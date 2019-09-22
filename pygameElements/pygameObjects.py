@@ -22,12 +22,10 @@ if platform.system() == "Windows":
     sys.modules['smbus'] = fake_rpi.smbus  # Fake smbus (I2C)
     from fake_rpi import toggle_print
     toggle_print(False)
-elif platform.system() == "Linux":
-    import lsb_release
-    DISTRO = lsb_release.get_distro_information()['CODENAME']
-    if DISTRO == 'buster':
-        print("WHO'RE YOU CALLING 'BUSTED', BUSTER?!")
 from RPi import GPIO
+if platform.system() == "Linux":
+    DISTRO = GPIO.RPI_INFO['REVISION']  # Inspect RPi Revisions:
+    # https://www.raspberrypi.org/documentation/hardware/raspberrypi/revision-codes/README.md
 
 matplotlib.use("Agg")
 
@@ -38,12 +36,14 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 button_map = (23, 22, 27, 18)
 
 # PiTFT Screen Dimensions
-if DISTRO == 'buster':
+if DISTRO == 'a020d3':  # Model 3B+
     DIM_SCREEN = 480, 320  # 3.5" = (320x240)
     # PiTFT Button Map
     # button_map = (23, 22, 27, 18)
-else:
+elif DISTRO == '000e':  #  Model B, Revision 2
     DIM_SCREEN = 320, 240  # 2.8" = (320x240)
+else:
+    DIM_SCREEN = 960, 640  # Desktop dimensions
 
 DIM_ICON = 10, 10  # Icon Dimensions
 
@@ -289,7 +289,7 @@ class Environment:
             dates = [r[0] for r in series.data]
             flow = [r[1] for r in series.data]
         # render matplotgraph to bitmap
-        fig = matplotlib.pyplot.figure(figsize=[6.4, 4.8],  # Inches
+        fig = matplotlib.pyplot.figure(figsize=[DIM_SCREEN[0]*(0.02), DIM_SCREEN[1]*(0.02)],#6.4, 4.8],  # Inches
                            dpi=50,  # 100 dots per inch, so the resulting buffer is 400x400 pixels
                            )
         ax = fig.gca()
