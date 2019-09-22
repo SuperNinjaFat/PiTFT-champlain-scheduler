@@ -33,15 +33,16 @@ matplotlib.use("Agg")
 # Base Directory
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 
-# PiTFT Screen Dimension (320x240)
-if DISTRO == 'buster':
-    DIM_SCREEN = 480, 320
-    # PiTFT Button Map
-    button_map = (23, 22, 27, 18)
-else:
-    DIM_SCREEN = 320, 240
 # PiTFT Button Map
 button_map = (23, 22, 27, 18)
+
+# PiTFT Screen Dimensions
+if DISTRO == 'buster':
+    DIM_SCREEN = 480, 320  # 3.5" = (320x240)
+    # PiTFT Button Map
+    # button_map = (23, 22, 27, 18)
+else:
+    DIM_SCREEN = 320, 240  # 2.8" = (320x240)
 
 DIM_ICON = 10, 10  # Icon Dimensions
 
