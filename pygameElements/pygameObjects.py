@@ -35,7 +35,7 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 
 # PiTFT Button Map
 button_map = (23, 22, 27, 18)
-
+print(button_map)   
 # PiTFT Screen Dimensions
 if DISTRO == 'buster':
     DIM_SCREEN = 480, 320  # 3.5" = (320x240)
