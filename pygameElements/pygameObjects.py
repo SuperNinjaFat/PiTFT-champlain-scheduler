@@ -25,7 +25,8 @@ if platform.system() == "Windows":
 elif platform.system() == "Linux":
     import lsb_release
     DISTRO = lsb_release.get_distro_information()['CODENAME']
-
+    if DISTRO == 'buster':
+        print("WHO'RE YOU CALLING 'BUSTED', BUSTER?!")
 from RPi import GPIO
 
 matplotlib.use("Agg")
