@@ -290,7 +290,7 @@ class Environment:
         # Set surface image
         self.surf = pygame.image.load(PATH_IMAGE_BURLINGTON_LEFT)
         # https://stackoverflow.com/questions/6339057/draw-a-transparent-rectangle-in-pygame
-        self.gui['button_right'] = Button(COLOR_WHITE, pygame.rect((DIM_SCREEN[0]-60, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
+        self.gui['button_right'] = Button(COLOR_WHITE, pygame.Rect((DIM_SCREEN[0]-60, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
 
     def surf_mainstreet(self):
         # TODO: https://www.mainstreetlanding.com/performing-arts-center/daily-rental-information/movies-at-main-street-landing/
