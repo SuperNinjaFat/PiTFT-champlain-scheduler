@@ -8,6 +8,7 @@ import os
 import datetime
 import socket
 import pygame
+import thorpy
 from pygame.locals import *
 from PIL import Image
 from climata.usgs import DailyValueIO
@@ -182,6 +183,51 @@ class Environment:
             pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
 
     def menu(self):
+        # Declaration of the application in which the menu is going to live.
+        application = thorpy.Application(size=DIM_SCREEN, caption='ThorPy stupid Example')
+
+        # Setting the graphical theme. By default, it is 'classic' (windows98-like).
+        thorpy.theme.set_theme('human')
+
+        # Declaration of some elements...
+        useless1 = thorpy.Element("This button is useless.\nAnd you can't click it.")
+
+        text = "This button also is useless.\nBut you can click it anyway."
+        useless2 = thorpy.Clickable(text)
+
+        draggable = thorpy.Draggable("Drag me!")
+
+        box1 = thorpy.make_ok_box([useless1, useless2, draggable])
+        options1 = thorpy.make_button("Some useless things...")
+        thorpy.set_launcher(options1, box1)
+
+        inserter = thorpy.Inserter(name="Tip text: ",
+                                   value="This is a default text.",
+                                   size=(150, 20))
+
+        file_browser = thorpy.Browser(path="C:/Users/", text="Please have a look.")
+
+        browser_launcher = thorpy.BrowserLauncher(browser=file_browser,
+                                                  const_text="Choose a file: ",
+                                                  var_text="")
+
+        color_setter = thorpy.ColorSetter.make()
+        color_launcher = thorpy.ColorSetterLauncher(color_setter,
+                                                    "Launch color setter")
+
+        options2 = thorpy.make_button("Useful things")
+        box2 = thorpy.make_ok_box([inserter, color_launcher, browser_launcher])
+        thorpy.set_launcher(options2, box2)
+
+        quit_button = thorpy.make_button("Quit")
+        quit_button.set_as_exiter()
+
+        central_box = thorpy.Box.make([options1, options2, quit_button])
+        central_box.set_main_color((200, 200, 200, 120))
+        central_box.center()
+
+        menu = thorpy.Menu(elements=[central_box], fps=45)
+        menu.play()
         crashed = False
         while not crashed:
             for event in pygame.event.get():
