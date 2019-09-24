@@ -8,7 +8,6 @@ import os
 import datetime
 import socket
 import pygame
-import thorpy
 from pygame.locals import *
 from PIL import Image
 from climata.usgs import DailyValueIO
@@ -142,12 +141,23 @@ def downloadImage(output, address):
     f.write(requests.get(address).content)
     f.close()
 
+class Button:
+    def __init__(self, color=COLOR_GRAY_19, dim=(150, 450, 100, 50), width=1):
+        self.color=color
+        self.dim=dim
+        self.width=width
+
+    def active(self):
+        pygame.draw.rect(screen, self.color, self.dim, width=self.width)
+
+
 
 class Environment:
     def __init__(self):
         # Initialize data buffers
         self.temp_data = None
         self.movies = []
+        self.gui = {}
         self.sponsor = Card
         # Define content list TODO: Settings - Save enabled/disabled content
         self.contentList = [[CONTENT_TEMPERATURE, lambda func: self.surf_plot()],
@@ -183,51 +193,6 @@ class Environment:
             pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
 
     def menu(self):
-        # Declaration of the application in which the menu is going to live.
-        application = thorpy.Application(size=DIM_SCREEN, caption='ThorPy stupid Example')
-
-        # Setting the graphical theme. By default, it is 'classic' (windows98-like).
-        thorpy.theme.set_theme('human')
-
-        # Declaration of some elements...
-        useless1 = thorpy.Element("This button is useless.\nAnd you can't click it.")
-
-        text = "This button also is useless.\nBut you can click it anyway."
-        useless2 = thorpy.Clickable(text)
-
-        draggable = thorpy.Draggable("Drag me!")
-
-        box1 = thorpy.make_ok_box([useless1, useless2, draggable])
-        options1 = thorpy.make_button("Some useless things...")
-        thorpy.set_launcher(options1, box1)
-
-        inserter = thorpy.Inserter(name="Tip text: ",
-                                   value="This is a default text.",
-                                   size=(150, 20))
-
-        file_browser = thorpy.Browser(path="C:/Users/", text="Please have a look.")
-
-        browser_launcher = thorpy.BrowserLauncher(browser=file_browser,
-                                                  const_text="Choose a file: ",
-                                                  var_text="")
-
-        color_setter = thorpy.ColorSetter.make()
-        color_launcher = thorpy.ColorSetterLauncher(color_setter,
-                                                    "Launch color setter")
-
-        options2 = thorpy.make_button("Useful things")
-        box2 = thorpy.make_ok_box([inserter, color_launcher, browser_launcher])
-        thorpy.set_launcher(options2, box2)
-
-        quit_button = thorpy.make_button("Quit")
-        quit_button.set_as_exiter()
-
-        central_box = thorpy.Box.make([options1, options2, quit_button])
-        central_box.set_main_color((200, 200, 200, 120))
-        central_box.center()
-
-        menu = thorpy.Menu(elements=[central_box], fps=45)
-        menu.play()
         crashed = False
         while not crashed:
             for event in pygame.event.get():
@@ -308,6 +273,9 @@ class Environment:
         pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (40, 13)), 0)  # Clock backing
         screen.blit(self.time_text[0], (2, 1))  # time text 12:00
         screen.blit(self.time_text[1], (25, 1))  # time text am/pm
+
+        for element in self.gui.items():
+            element[1].active()
         pygame.display.update()
 
     def surf_startup(self):
@@ -321,6 +289,8 @@ class Environment:
         print("Burlington Live Camera")
         # Set surface image
         self.surf = pygame.image.load(PATH_IMAGE_BURLINGTON_LEFT)
+        # https://stackoverflow.com/questions/6339057/draw-a-transparent-rectangle-in-pygame
+        self.gui['button_right'] = Button(COLOR_WHITE, pygame.Rect((DIM_SCREEN[0]-60, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
 
     def surf_mainstreet(self):
         # TODO: https://www.mainstreetlanding.com/performing-arts-center/daily-rental-information/movies-at-main-street-landing/
