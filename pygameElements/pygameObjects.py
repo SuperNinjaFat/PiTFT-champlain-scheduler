@@ -250,6 +250,7 @@ class Environment:
             self.refresh()
 
     def setContent(self, prev=False):
+        self.gui.clear()  # clear gui
         if prev:
             self.cIndex = self.contentList.index(self.contentList[self.cIndex - 1])  # Iterate cIndex backwards
         else:
