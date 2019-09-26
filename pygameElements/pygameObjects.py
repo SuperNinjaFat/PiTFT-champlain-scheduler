@@ -76,7 +76,6 @@ os.putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
 
 # Initialize Pygame
 pygame.init()
-pygame.mouse.set_visible(False)
 # Initialize Events TODO: Settings - Save slideshow incriments and frequency of downloading data.
 pygame.time.set_timer(USEREVENT + 1, 28800000)  # Every 8 hours, download temperature and movie data.
 pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds # 120000)  # Every 10 seconds, switch the surface.
@@ -93,6 +92,7 @@ if platform.system() == "Windows":
     FONT_FALLOUT = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'r_fallouty.ttf'), 30)
     FONT_BM = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 10)
 elif platform.system() == "Linux":
+    pygame.mouse.set_visible(False)
     print("Linux fonts")
     FONT_FALLOUT = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
     FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 10)
@@ -147,8 +147,11 @@ class Button:
         self.dim=dim
         self.width=width
 
-    def active(self):
-        pygame.draw.rect(screen, self.color, self.dim, self.width)
+    def active(self, mouse):
+        if self.dim[0] + self.dim[2] > mouse[0] > self.dim[0] and self.dim[1] + self.dim[3] > mouse[1] > self.dim[1]:
+            pygame.draw.rect(screen, COLOR_ORANGE, self.dim)
+        else:
+            pygame.draw.rect(screen, self.color, self.dim, self.width)
 
 
 
@@ -156,6 +159,7 @@ class Environment:
     def __init__(self):
         # Initialize data buffers
         self.temp_data = None
+        self.mouse = None
         self.movies = []
         self.gui = {}
         self.sponsor = Card
@@ -224,6 +228,17 @@ class Environment:
                         if platform.system() == "Linux":
                             os.system("sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # On
                         pygame.quit()
+            # Scan the mouse
+            self.mouse = pygame.mouse.get_pos()
+
+            # TODO: Move changes to the gui buttons to out here.
+
+            # TODO: Touching the screen makes the screen refresh and the slideshow time reset
+            # if self.slideshow:
+            #     pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
+            # # Whenever the user touches the screen, reset the sleep event.
+            # pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
+
             # Scan the buttons
             for k in button_map:  # TODO: IMPLEMENT BUTTONS FOR ALL PI PLATFORMS
                 if not GPIO.input(k) and not self.buttonDelay and DIST == "000e":  # platform.system() == "Linux":
@@ -240,8 +255,8 @@ class Environment:
                         if self.slideshow:
                             pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
                     self.buttonDelay = True
-                    pygame.time.set_timer(USEREVENT + 4, 200)
-                    # Whenever the user presses a button/interacts with the device, reset the sleep event.
+                    pygame.time.set_timer(USEREVENT + 4, 200)  # Reset the tactile button delay
+                    # Whenever the user presses a tactile button, reset the sleep event.
                     pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
                     # Prevents the backlight from constantly getting set on instead of just to turn it back on.
                     if not self.backlight:  # if "backlight turn-on has been tripped"
@@ -276,7 +291,7 @@ class Environment:
         screen.blit(self.time_text[1], (25, 1))  # time text am/pm
 
         for element in self.gui.items():
-            element[1].active()
+            element[1].active(self.mouse)
         pygame.display.update()
 
     def surf_startup(self):
@@ -292,6 +307,7 @@ class Environment:
         self.surf = pygame.image.load(PATH_IMAGE_BURLINGTON_LEFT)
         # https://stackoverflow.com/questions/6339057/draw-a-transparent-rectangle-in-pygame
         self.gui['button_right'] = Button(COLOR_WHITE, pygame.Rect((DIM_SCREEN[0]-60, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
+        self.gui['button_left'] = Button(COLOR_WHITE, pygame.Rect((0, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
 
     def surf_mainstreet(self):
         # TODO: https://www.mainstreetlanding.com/performing-arts-center/daily-rental-information/movies-at-main-street-landing/
@@ -388,10 +404,19 @@ class Environment:
         for listing in listings_raw:
             m_image_name = 'movie' + str(listings_raw.index(listing)) + '.jpg'
             movieImagePath = os.path.join(os.path.join(DIR_BASE, 'resource'), m_image_name)
-            downloadImage(m_image_name,
-                          URL_MAINSTREET + "/" + str(listing.contents[1].contents[1].contents[1].attrs['src']))
+            im = None
+            sizesBuffer = []
+            sizes = []
+            sizesBuffer = str(listing.contents[1].contents[1].contents[1].attrs['srcset']).split(" ")
+            for ded in range(0, len(sizesBuffer), 2):
+                sizes.append(sizesBuffer[ded])
+            for iSize in sizes:
+                downloadImage(m_image_name,
+                              URL_MAINSTREET + iSize)
+                im = self.imChecker(iSize, im, movieImagePath)
+                if im:
+                    break
 
-            im = Image.open(movieImagePath)  # Rescale the image to fit into the screen
             self.resizeImage(movieImagePath, "JPEG", self.scale(constraintH=80, size=im.size))
 
             self.movies.append(Card(
@@ -402,6 +427,15 @@ class Environment:
                 img=pygame.image.load(movieImagePath),
 
             ))
+
+    def imChecker(self, iSize, im, movieImagePath):
+        try:
+            im = Image.open(movieImagePath)  # Rescale the image to fit into the screen
+        except IOError as e:
+            im = None
+            print(e)
+            print("Attempting \"", iSize[28:30], "\" next.")
+        return im
 
     def pullImageBurlington(self):
         # Download image from Camnet
@@ -429,3 +463,7 @@ class Environment:
 
     def scale(self, constraintH, size):
         return [int(size[0] / (size[1] / constraintH)), constraintH]
+
+    def guifunctions(self):
+        for element in self.gui:
+            self.gui[element].change(self.mouse)
