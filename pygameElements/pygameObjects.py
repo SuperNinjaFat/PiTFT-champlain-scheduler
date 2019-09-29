@@ -158,7 +158,7 @@ class Button:
 class Environment:
     def __init__(self):
         # Initialize data buffers
-        self.temp_data = None
+        self.data_temperature_water = None
         self.mouse = None
         self.movies = []
         self.gui = {}
@@ -278,6 +278,9 @@ class Environment:
     def refresh(self):
         screen.blit(self.surf, (0, 0))  # Background
 
+        for element in self.gui.items():
+            element[1].active(self.mouse)
+
         # Icons Todo: make icon bar toggleable in options
         pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (DIM_SCREEN[0], 13)), 0)  # Icon bar backing
         if self.buttonDelay:
@@ -290,8 +293,6 @@ class Environment:
         screen.blit(self.time_text[0], (2, 1))  # time text 12:00
         screen.blit(self.time_text[1], (25, 1))  # time text am/pm
 
-        for element in self.gui.items():
-            element[1].active(self.mouse)
         pygame.display.update()
 
     def surf_startup(self):
@@ -324,7 +325,7 @@ class Environment:
         self.surf = pygame.image.load(PATH_IMAGE_GRAPH_TEMPERATURE)
 
     def graph_temp(self):
-        for series in self.temp_data:  # Create list of date-flow values
+        for series in self.data_temperature_water:  # Create list of date-flow values
             dates = [r[0] for r in series.data]
             flow = [r[1] for r in series.data]
         # render matplotgraph to bitmap
@@ -366,22 +367,19 @@ class Environment:
                           os.path.join(os.path.join(DIR_BASE, 'resource'), 'graph_temp_lake.png'))
 
     def pullData(self):  # TODO: Account for an error return
-        # Download graph data
+        # Download lake temperature graph data
         ndays = 11  # 11 days
         station_id = "04294500"
         param_id = "00010"
-        datelist = pandas.date_range(end=pandas.datetime.today(), periods=ndays).tolist()
-        data = None  # https://www.earthdatascience.org/tutorials/acquire-and-visualize-usgs-hydrology-data/
-        try:
-            data = DailyValueIO(
-                start_date=datelist[0],
-                end_date=datelist[-1],
-                station=station_id,
-                parameter=param_id,
-            )
-        except (requests.exceptions.ConnectionError, socket.gaierror, ConnectionError) as e:
-            print(e)
-        self.temp_data = data
+        data = self.pullStationData(ndays, param_id, station_id)
+        self.data_temperature_water = data
+
+        # # Download precipitation graph data
+        # ndays = 11  # 11 days
+        # station_id = "04294500"
+        # param_id = "00010"
+        # data = self.pullStationData(ndays, param_id, station_id)
+        # self.data_temperature_water = data
 
         # Download image and text data from mainstreetlanding.com
         html = requests.get(
@@ -427,6 +425,20 @@ class Environment:
                 img=pygame.image.load(movieImagePath),
 
             ))
+
+    def pullStationData(self, ndays, param_id, station_id):
+        datelist = pandas.date_range(end=pandas.datetime.today(), periods=ndays).tolist()
+        data = None  # https://www.earthdatascience.org/tutorials/acquire-and-visualize-usgs-hydrology-data/
+        try:
+            data = DailyValueIO(
+                start_date=datelist[0],
+                end_date=datelist[-1],
+                station=station_id,
+                parameter=param_id,
+            )
+        except (requests.exceptions.ConnectionError, socket.gaierror, ConnectionError) as e:
+            print(e)
+        return data
 
     def imChecker(self, iSize, im, movieImagePath):
         try:
