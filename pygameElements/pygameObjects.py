@@ -17,7 +17,6 @@ from bs4 import BeautifulSoup
 # from html.parser import HTMLParser
 DIST = ""
 
-
 if platform.system() == "Windows":
     import fake_rpi
 
@@ -53,7 +52,7 @@ button_map = (23, 22, 27, 18)
 
 # PiTFT Screen Dimensions
 if DIST == 'a020d3':  # Model 3B+
-    DIM_SCREEN = 480, 320  # 3.5" = (320x240)
+    DIM_SCREEN = 480, 320  # 3.5" = (480x320)
     # PiTFT Button Map
     # button_map = (23, 22, 27, 18)
 elif DIST == '000e':  # Model B, Revision 2
@@ -71,8 +70,8 @@ for k in button_map:
 
 # Initialize OS Screen
 os.putenv('SDL_FBDEV', '/dev/fb1')
-os.putenv('SDL_MOUSEDRV', 'TSLIB')
 os.putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
+os.putenv('SDL_MOUSEDRV', 'TSLIB')
 
 # Initialize Pygame
 pygame.init()
@@ -121,10 +120,14 @@ ICON_SLIDESHOW = 0  # Slideshow Icon
 ICON_TEST = 1  # Slideshow Icon
 
 # Content switching
-CONTENT_TEMPERATURE = 0
-CONTENT_PICTURE = 1
-CONTENT_MAINSTREET = 2
-CONTENT_SHUTTLE = 3
+CONTENT_TEMPERATURE = {"number":    0,
+                       "name":      "Temperature: Lake"}
+CONTENT_PICTURE = {"number":    1,
+                   "name":      "Burlington Live Camera"}
+CONTENT_MAINSTREET = {"number": 2,
+                      "name":   "Mainstreet Landing Movies"}
+CONTENT_SHUTTLE = {"number":    3,
+                   "name":      "Shuttle Map"}
 
 
 class Card:
@@ -141,11 +144,12 @@ def downloadImage(output, address):
     f.write(requests.get(address).content)
     f.close()
 
+
 class Button:
     def __init__(self, color=COLOR_GRAY_19, dim=(150, 450, 100, 50), width=1):
-        self.color=color
-        self.dim=dim
-        self.width=width
+        self.color = color
+        self.dim = dim
+        self.width = width
 
     def active(self, mouse):
         if self.dim[0] + self.dim[2] > mouse[0] > self.dim[0] and self.dim[1] + self.dim[3] > mouse[1] > self.dim[1]:
@@ -153,6 +157,12 @@ class Button:
         else:
             pygame.draw.rect(screen, self.color, self.dim, self.width)
 
+
+class Page:
+    def __init__(self, background=pygame.transform.scale(pygame.image.load(PATH_IMAGE_OFFLINE),
+                                                         DIM_SCREEN), buttons=[]):
+        self.background = background
+        self.buttons = buttons
 
 
 class Environment:
@@ -164,18 +174,18 @@ class Environment:
         self.gui = {}
         self.sponsor = Card
         # Define content list TODO: Settings - Save enabled/disabled content
-        self.contentList = [[CONTENT_TEMPERATURE, lambda func: self.surf_plot()],
-                            [CONTENT_PICTURE, lambda func: self.surf_picture()],
-                            # [CONTENT_MAINSTREET, lambda func: self.surf_mainstreet()],
-                            # [CONTENT_SHUTTLE, lambda func: self.surf_shuttle()]
+        self.contentList = [[CONTENT_TEMPERATURE, PATH_IMAGE_GRAPH_TEMPERATURE, lambda func: self.surf_plot()],
+                            [CONTENT_PICTURE, PATH_IMAGE_BURLINGTON_LEFT, lambda func: self.surf_picture()],
+                            # [CONTENT_MAINSTREET['number'], PATH_IMAGE_STARTUP, lambda func: self.surf_mainstreet()],
+                            # [CONTENT_SHUTTLE['number'], PATH_IMAGE_STARTUP, lambda func: self.surf_shuttle()]
                             ]
-        self.surf = pygame.transform.scale(pygame.image.load(PATH_IMAGE_OFFLINE),
-                                           DIM_SCREEN)  # Set surface image to offline
+        self.surf_background = pygame.transform.scale(pygame.image.load(PATH_IMAGE_OFFLINE),
+                                                      DIM_SCREEN)  # Set surface image to offline
         self.time_text = (None, None)  # Time Buffer
         self.slideshow = True  # slideshow toggler
         self.buttonDelay = False  # Button delay
         self.backlight = True  # Backlight is On
-        self.cIndex = CONTENT_TEMPERATURE  # Start with lake temperature
+        self.cIndex = CONTENT_TEMPERATURE['number']  # Start with lake temperature
 
         # Icons
         self.icon = [pygame.transform.scale(pygame.image.load(PATH_ICON_SLIDESHOW),
@@ -190,10 +200,10 @@ class Environment:
         self.pullImageBurlington()  # Download Burlington images
 
         # You have to run a set-surface function before the slides start up.
-        self.contentList[self.cIndex][1](self)
+        self.surf_background = pygame.image.load(self.contentList[self.cIndex][1])
         # self.surf_startup()  # Start with lake temperature
         if platform.system() == "Linux":
-            # Only use the sleep function for the raspberry pi
+            # Only use the sleep function for raspberry pi
             pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
 
     def menu(self):
@@ -226,7 +236,8 @@ class Environment:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         if platform.system() == "Linux":
-                            os.system("sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # On
+                            os.system(
+                                "sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # On
                         pygame.quit()
             # Scan the mouse
             self.mouse = pygame.mouse.get_pos()
@@ -273,13 +284,13 @@ class Environment:
                 self.cIndex = 0
             else:
                 self.cIndex = self.cIndex + 1
-        self.contentList[self.cIndex][1](self)  # Run content function
+        print(self.contentList[self.cIndex][0]['name'])
+        self.surf_background = pygame.image.load(self.contentList[self.cIndex][1])  # set background
 
     def refresh(self):
-        screen.blit(self.surf, (0, 0))  # Background
+        screen.blit(self.surf_background, (0, 0))  # Background
 
-        for element in self.gui.items():
-            element[1].active(self.mouse)
+        self.contentList[self.cIndex][2](self)  # run the content function
 
         # Icons Todo: make icon bar toggleable in options
         pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (DIM_SCREEN[0], 13)), 0)  # Icon bar backing
@@ -288,41 +299,49 @@ class Environment:
         if self.slideshow:
             screen.blit(self.icon[ICON_SLIDESHOW], (44, 1))
 
+        # Content Name
+        cont__name = FONT_BM.render(self.contentList[self.cIndex][0]['name'], True, COLOR_BLACK)
+        screen.blit(cont__name, ((DIM_SCREEN[0]-cont__name.get_size()[0])-2, 1))
+
         # Clock
-        pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (40, 13)), 0)  # Clock backing
+        # pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (40, 13)), 0)  # Clock backing
         screen.blit(self.time_text[0], (2, 1))  # time text 12:00
         screen.blit(self.time_text[1], (25, 1))  # time text am/pm
 
         pygame.display.update()
 
-    def surf_startup(self):
-        print("Startup")
-        # Set surface image
-        self.surf = pygame.image.load(PATH_IMAGE_STARTUP)
+    # def surf_startup(self):
+    #     print("Startup")
+    #     # Set surface image
+    #     self.surf_background = pygame.image.load(PATH_IMAGE_STARTUP)
 
     def surf_picture(self):
         # TODO: https://developers.google.com/drive/api/v3/manage-downloads
         # TODO: http://blog.vogella.com/2011/06/21/creating-bitmaps-from-the-internet-via-apache-httpclient/
-        print("Burlington Live Camera")
-        # Set surface image
-        self.surf = pygame.image.load(PATH_IMAGE_BURLINGTON_LEFT)
         # https://stackoverflow.com/questions/6339057/draw-a-transparent-rectangle-in-pygame
+        # Set buttons
+        # buttons = [Button(COLOR_WHITE, pygame.Rect((DIM_SCREEN[0] - 60, 0), (60, DIM_SCREEN[1])), 0),
+        #            Button(COLOR_WHITE, pygame.Rect((0, 0), (60, DIM_SCREEN[1])), 0)
+        #            ]
+        # self.page = Page(pygame.image.load(PATH_IMAGE_BURLINGTON_LEFT), buttons)
         self.gui['button_right'] = Button(COLOR_WHITE, pygame.Rect((DIM_SCREEN[0]-60, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         self.gui['button_left'] = Button(COLOR_WHITE, pygame.Rect((0, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
+        for element in self.gui.items():
+            element[1].active(self.mouse)
+        # TODO: Either remove self.gui or clear it in self.setContent
 
     def surf_mainstreet(self):
         # TODO: https://www.mainstreetlanding.com/performing-arts-center/daily-rental-information/movies-at-main-street-landing/
         # TODO: https://stackoverflow.com/questions/18294711/extracting-images-from-html-pages-with-python
-        print("Mainstreet Landing Movies")
         # TODO: Make a sub-screen that allows you to flip through the content held in the movie cards.
         # and scroll through movie descriptions
+        pass
 
     def surf_shuttle(self):  # TODO: https://shuttle.champlain.edu/
-        print("Shuttle Map")
+        pass
 
     def surf_plot(self):
-        print("Temperature: Lake")
-        self.surf = pygame.image.load(PATH_IMAGE_GRAPH_TEMPERATURE)
+        pass
 
     def graph_temp(self):
         for series in self.data_temperature_water:  # Create list of date-flow values
