@@ -214,8 +214,8 @@ class Environment:
                 if event.type == USEREVENT + 1:  # Every 8 hours, download new data and render images.
                     self.pullData()
                     self.graph_temp()
-                if event.type == USEREVENT + 2:  # 10 seconds # 120000)  # Every 10 seconds, switch the surface.
-                    self.setContent()
+                if event.type == USEREVENT + 2 and self.slideshow:  # 10 seconds # 120000)  # Every 10 seconds, switch the surface.
+                    self.content_iterate()
                 if event.type == USEREVENT + 3:  # Every minute, refresh the clock.
                     self.pullTime()  # TODO: Make time toggleable and an options menu to do it.
                 if event.type == USEREVENT + 4:
@@ -233,12 +233,21 @@ class Environment:
                     crashed = True
 
                 # Quit
-                if event.type == pygame.KEYDOWN:
+                if event.type == pygame.KEYDOWN and not self.buttonDelay:
+                    if platform.system() == "Linux":
+                        self.reset_backlight()
                     if event.key == pygame.K_ESCAPE:
-                        if platform.system() == "Linux":
-                            os.system(
-                                "sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # On
                         pygame.quit()
+                    if event.key == pygame.K_BACKSLASH:
+                        self.toggleSlideshow()
+                    if event.key == pygame.K_LEFT:
+                        self.content_iterate(True)
+                        self.reset_slideshow()
+                    if event.key == pygame.K_RIGHT:
+                        self.content_iterate()
+                        self.reset_slideshow()
+                    self.reset_buttondelay()
+
             # Scan the mouse
             self.mouse = pygame.mouse.get_pos()
 
@@ -246,9 +255,7 @@ class Environment:
 
             # TODO: Touching the screen makes the screen refresh and the slideshow time reset
             # if self.slideshow:
-            #     pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
-            # # Whenever the user touches the screen, reset the sleep event.
-            # pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
+
 
             # Scan the buttons
             for k in button_map:  # TODO: IMPLEMENT BUTTONS FOR ALL PI PLATFORMS
@@ -258,24 +265,31 @@ class Environment:
                     if k == button_map[1]:
                         self.toggleSlideshow()
                     if k == button_map[2]:
-                        self.setContent(True)
-                        if self.slideshow:
-                            pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
+                        self.content_iterate(True)
+                        self.reset_slideshow()
                     if k == button_map[3]:
-                        self.setContent()
-                        if self.slideshow:
-                            pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
-                    self.buttonDelay = True
-                    pygame.time.set_timer(USEREVENT + 4, 200)  # Reset the tactile button delay
-                    # Whenever the user presses a tactile button, reset the sleep event.
-                    pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
-                    # Prevents the backlight from constantly getting set on instead of just to turn it back on.
-                    if not self.backlight:  # if "backlight turn-on has been tripped"
-                        os.system("sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # On
-                        self.backlight = True  # "backlight turn-on has been tripped"
+                        self.content_iterate()
+                        self.reset_slideshow()
+                    self.reset_buttondelay()  # Reset the tactile button delay
+                    self.reset_backlight()  # Whenever the user presses a button, reset the backlight
             self.refresh()
 
-    def setContent(self, prev=False):
+    def reset_buttondelay(self):
+        self.buttonDelay = True
+        pygame.time.set_timer(USEREVENT + 4, 200)  # delay is 1/5th of a second
+
+    def reset_slideshow(self):
+        if self.slideshow:  # if the slideshow bool is enabled, reset the timer:
+            pygame.time.set_timer(USEREVENT + 2, 10000)  # 10 seconds
+
+    def reset_backlight(self):
+        pygame.time.set_timer(USEREVENT + 5, 60000)  # 1 minute # 600000) # 10 minutes
+        # Prevents the backlight from constantly getting set on instead of just to turn it back on.
+        if not self.backlight:  # if "backlight turn-on has been tripped"
+            os.system("sudo sh -c \'echo \"1\" > /sys/class/backlight/soc\:backlight/brightness\'")  # On
+            self.backlight = True  # "backlight turn-on has been tripped"
+
+    def content_iterate(self, prev=False):
         self.gui.clear()  # clear gui
         if prev:
             self.cIndex = self.contentList.index(self.contentList[self.cIndex - 1])  # Iterate cIndex backwards
@@ -294,9 +308,9 @@ class Environment:
 
         # Icons Todo: make icon bar toggleable in options
         pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (DIM_SCREEN[0], 13)), 0)  # Icon bar backing
-        if self.buttonDelay:
+        if self.buttonDelay:  # if the buttonDelay bool is enabled, display the icon.
             screen.blit(self.icon[ICON_TEST], (59, 1))
-        if self.slideshow:
+        if self.slideshow:  # if the slideshow bool is enabled, display the icon.
             screen.blit(self.icon[ICON_SLIDESHOW], (44, 1))
 
         # Content Name
@@ -486,9 +500,9 @@ class Environment:
             FONT_BM.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_BM.render(d.strftime("%p"), True, COLOR_BLACK))
 
     def toggleSlideshow(self):
-        if self.slideshow:
+        if self.slideshow:  # if the slideshow bool is enabled:
             pygame.time.set_timer(USEREVENT + 2, 0)  # turn off the slideshow userevent
-        else:
+        else:  # if the slideshow bool is disabled:
             pygame.time.set_timer(USEREVENT + 2, 10000)  # turn on the slideshow userevent
         self.slideshow = not self.slideshow  # toggle the slideshow bool
 
