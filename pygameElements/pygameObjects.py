@@ -152,7 +152,9 @@ class Button:
         self.width = width
 
     def active(self, mouse):
-        if self.dim[0] + self.dim[2] > mouse[0] > self.dim[0] and self.dim[1] + self.dim[3] > mouse[1] > self.dim[1]:
+        if self.dim[0] + self.dim[2] > mouse['position'][0] > self.dim[0]\
+                and self.dim[1] + self.dim[3] > mouse['position'][1] > self.dim[1]\
+                and mouse['click']:
             pygame.draw.rect(screen, COLOR_ORANGE, self.dim)
         else:
             pygame.draw.rect(screen, self.color, self.dim, self.width)
@@ -169,7 +171,8 @@ class Environment:
     def __init__(self):
         # Initialize data buffers
         self.data_temperature_water = None
-        self.mouse = None
+        self.mouse = {"position": (0, 0),
+                      "click": False}
         self.movies = []
         self.gui = {}
         self.sponsor = Card
@@ -232,7 +235,14 @@ class Environment:
                 if event.type == pygame.QUIT:
                     crashed = True
 
-                # Quit
+                # mouse
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    self.mouse['click'] = True
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    self.mouse['click'] = False
+                else:
+                    self.mouse['click'] = False
+
                 if event.type == pygame.KEYDOWN and not self.buttonDelay:
                     if platform.system() == "Linux":
                         self.reset_backlight()
@@ -248,9 +258,7 @@ class Environment:
                         self.reset_slideshow()
                     self.reset_buttondelay()
 
-            # Scan the mouse
-            self.mouse = pygame.mouse.get_pos()
-
+            self.mouse['position'] = pygame.mouse.get_pos()
             # TODO: Move changes to the gui buttons to out here.
 
             # TODO: Touching the screen makes the screen refresh and the slideshow time reset
