@@ -150,14 +150,17 @@ class Button:
         self.color = color
         self.dim = dim
         self.width = width
+        self.state = False
 
     def active(self, mouse):
         if self.dim[0] + self.dim[2] > mouse['position'][0] > self.dim[0]\
                 and self.dim[1] + self.dim[3] > mouse['position'][1] > self.dim[1]\
                 and mouse['click']:
             pygame.draw.rect(screen, COLOR_ORANGE, self.dim)
+            self.state = True
         else:
             pygame.draw.rect(screen, self.color, self.dim, self.width)
+            self.state = False
 
 
 class Page:
@@ -350,6 +353,10 @@ class Environment:
         self.gui['button_left'] = Button(COLOR_WHITE, pygame.Rect((0, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         for element in self.gui.items():
             element[1].active(self.mouse)
+        if self.gui['button_right'].state:
+            self.surf_background = pygame.image.load(PATH_IMAGE_BURLINGTON_RIGHT)
+        if self.gui['button_left'].state:
+            self.surf_background = pygame.image.load(PATH_IMAGE_BURLINGTON_LEFT)
         # TODO: Either remove self.gui or clear it in self.setContent
 
     def surf_mainstreet(self):
@@ -494,8 +501,8 @@ class Environment:
         # Download image from Camnet
         downloadImage('burlington_left.jpg', 'https://hazecam.net/images/large/burlington_left.jpg')
         self.resizeImage(PATH_IMAGE_BURLINGTON_LEFT, "JPEG", DIM_SCREEN)
-        # downloadImage('burlington_right.jpg', 'https://hazecam.net/images/large/burlington_right.jpg')
-        # self.resizeImage(PATH_IMAGE_BURLINGTON_RIGHT, "JPEG", DIM_SCREEN)
+        downloadImage('burlington_right.jpg', 'https://hazecam.net/images/large/burlington_right.jpg')
+        self.resizeImage(PATH_IMAGE_BURLINGTON_RIGHT, "JPEG", DIM_SCREEN)
 
     def resizeImage(self, imgPath, imgType, imgDim):
         im = Image.open(imgPath)
