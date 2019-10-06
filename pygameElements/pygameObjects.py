@@ -90,11 +90,15 @@ if platform.system() == "Windows":
     #  TODO: Fix directory access outside of local directory
     FONT_FALLOUT = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'r_fallouty.ttf'), 30)
     FONT_BM = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 10)
+    FONT_MOVIE_TITLE = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 40)
+    FONT_MOVIE_DESC = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'r_fallouty.ttf'), 30)
 elif platform.system() == "Linux":
     pygame.mouse.set_visible(False)
     print("Linux fonts")
     FONT_FALLOUT = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
     FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 10)
+    FONT_MOVIE_TITLE = pygame.font.Font('resource/fonts/din1451alt.ttf', 40)
+    FONT_MOVIE_DESC = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
 else:
     print("default fonts")
     FONT_FALLOUT = pygame.font.SysFont(None, 30)
@@ -106,10 +110,12 @@ screen = pygame.display.set_mode(DIM_SCREEN)
 # colors
 COLOR_BLACK = 0, 0, 0
 COLOR_WHITE = 255, 255, 255
+COLOR_ALPHA_WHITE = 255, 255, 255, 70  # 128
 COLOR_GRAY_19 = 31, 31, 31
 COLOR_GRAY_21 = 54, 54, 54
 COLOR_GRAY_41 = 105, 105, 105
 COLOR_ORANGE = 251, 126, 20
+COLOR_ALPHA_ORANGE = 251, 126, 20, 70  # 128
 COLOR_LAVENDER = 230, 230, 250
 
 # urls
@@ -146,28 +152,32 @@ def downloadImage(output, address):
 
 
 class Button:
-    def __init__(self, color=COLOR_GRAY_19, dim=(150, 450, 100, 50), width=1):
+    def __init__(self, color=COLOR_GRAY_19, surf=None, dim=None, width=1):
         self.color = color
+        self.surf = surf  # (DIM_SCREEN[0] - 60, 0), (60, DIM_SCREEN[1]) right
         self.dim = dim
         self.width = width
         self.state = False
 
     def active(self, mouse):
-        if self.dim[0] + self.dim[2] > mouse['position'][0] > self.dim[0]\
-                and self.dim[1] + self.dim[3] > mouse['position'][1] > self.dim[1]\
+        if self.dim[0] + self.dim[2] > mouse['position'][0] > self.dim[0] \
+                and self.dim[1] + self.dim[3] > mouse['position'][1] > self.dim[1] \
                 and mouse['click']:
-            pygame.draw.rect(screen, COLOR_ORANGE, self.dim)
+            # pygame.draw.rect(screen, COLOR_ORANGE, self.surf)
+            self.surf.fill(COLOR_ALPHA_ORANGE)  # notice the alpha value in the color
             self.state = True
         else:
-            pygame.draw.rect(screen, self.color, self.dim, self.width)
+            # pygame.draw.rect(screen, self.color, self.surf, self.width)
+            self.surf.fill(COLOR_ALPHA_WHITE)  # notice the alpha value in the color
             self.state = False
+        screen.blit(self.surf, (self.dim[0], self.dim[1]))
 
-
-class Page:
-    def __init__(self, background=pygame.transform.scale(pygame.image.load(PATH_IMAGE_OFFLINE),
-                                                         DIM_SCREEN), buttons=[]):
-        self.background = background
-        self.buttons = buttons
+#
+# class Page:
+#     def __init__(self, background=pygame.transform.scale(pygame.image.load(PATH_IMAGE_OFFLINE),
+#                                                          DIM_SCREEN), buttons=[]):
+#         self.background = background
+#         self.buttons = buttons
 
 
 class Environment:
@@ -182,10 +192,11 @@ class Environment:
 
         self.sponsor = Card
         # Define content list TODO: Settings - Save enabled/disabled content
-        self.contentList = [[CONTENT_TEMPERATURE, PATH_IMAGE_GRAPH_TEMPERATURE, lambda func: self.surf_plot()],
-                            [CONTENT_PICTURE, PATH_IMAGE_BURLINGTON_LEFT, lambda func: self.surf_picture()],
-                            # [CONTENT_MAINSTREET['number'], PATH_IMAGE_STARTUP, lambda func: self.surf_mainstreet()],
-                            # [CONTENT_SHUTTLE['number'], PATH_IMAGE_STARTUP, lambda func: self.surf_shuttle()]
+        self.contentList = [
+            [CONTENT_TEMPERATURE, PATH_IMAGE_GRAPH_TEMPERATURE, lambda func: self.surf_plot()],
+            [CONTENT_PICTURE, PATH_IMAGE_BURLINGTON_LEFT, lambda func: self.surf_picture()],
+            [CONTENT_MAINSTREET, PATH_IMAGE_STARTUP, lambda func: self.surf_mainstreet()],
+            # [CONTENT_SHUTTLE, PATH_IMAGE_STARTUP, lambda func: self.surf_shuttle()]
                             ]
         self.surf_background = pygame.transform.scale(pygame.image.load(PATH_IMAGE_OFFLINE),
                                                       DIM_SCREEN)  # Set surface image to offline
@@ -345,7 +356,6 @@ class Environment:
     def surf_picture(self):
         # TODO: https://developers.google.com/drive/api/v3/manage-downloads
         # TODO: http://blog.vogella.com/2011/06/21/creating-bitmaps-from-the-internet-via-apache-httpclient/
-        # https://stackoverflow.com/questions/6339057/draw-a-transparent-rectangle-in-pygame
         # Set buttons
         # buttons = [Button(COLOR_WHITE, pygame.Rect((DIM_SCREEN[0] - 60, 0), (60, DIM_SCREEN[1])), 0),
         #            Button(COLOR_WHITE, pygame.Rect((0, 0), (60, DIM_SCREEN[1])), 0)
@@ -353,9 +363,10 @@ class Environment:
         # self.page = Page(pygame.image.load(PATH_IMAGE_BURLINGTON_LEFT), buttons)
         self.gui.clear()  # clear gui
         if self.gui_picture_toggle:
-            self.gui['button_right'] = Button(COLOR_WHITE, pygame.Rect((DIM_SCREEN[0]-60, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
+            # https://stackoverflow.com/questions/6339057/draw-a-transparent-rectangle-in-pygame
+            self.gui['button_right'] = Button(COLOR_ALPHA_WHITE, pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA), (DIM_SCREEN[0] - 60, 0, 60, DIM_SCREEN[1]), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         else:
-            self.gui['button_left'] = Button(COLOR_WHITE, pygame.Rect((0, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
+            self.gui['button_left'] = Button(COLOR_ALPHA_WHITE, pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA), (0, 0, 60, DIM_SCREEN[1]), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         for element in self.gui.items():
             element[1].active(self.mouse)
             if element[1].state:  # if clicked
@@ -372,7 +383,19 @@ class Environment:
         # TODO: https://stackoverflow.com/questions/18294711/extracting-images-from-html-pages-with-python
         # TODO: Make a sub-screen that allows you to flip through the content held in the movie cards.
         # and scroll through movie descriptions
-        pass
+        self.gui.clear()  # clear gui
+
+        movie = self.movies[0]
+        print("Screen width: ", DIM_SCREEN[0],", Image width: ", movie.img.get_size()[0])
+        print("Screen height: ", DIM_SCREEN[1],", Image height: ", movie.img.get_size()[1])
+        print("Coordinates: ", (int(DIM_SCREEN[0]/2) - int(movie.img.get_size()[0]/2), int(DIM_SCREEN[1]/2) - int(movie.img.get_size()[1]/2)))
+        screen.blit(movie.img, (int(DIM_SCREEN[0]/2) - int(movie.img.get_size()[0]/2), int(DIM_SCREEN[1]/2) - int(movie.img.get_size()[1]/2)))
+        text__title = FONT_MOVIE_TITLE.render(movie.title, True, COLOR_BLACK)
+        screen.blit(text__title, ((DIM_SCREEN[0] - text__title.get_size()[0]), int(DIM_SCREEN[0]/5)))
+
+        text__desc = FONT_MOVIE_DESC.render(movie.desc, True, COLOR_BLACK)
+        screen.blit(text__desc, ((DIM_SCREEN[0] - text__desc.get_size()[0]) - 2, int(DIM_SCREEN[0]/3)))
+
 
     def surf_shuttle(self):  # TODO: https://shuttle.champlain.edu/
         pass
@@ -447,7 +470,7 @@ class Environment:
         downloadImage('sponsor.jpg',
                       URL_MAINSTREET + "/" + str(sponsor_raw.contents[1].contents[1].contents[1].attrs['src']))
         im = Image.open(PATH_IMAGE_SPONSOR)  # Rescale the image to fit into the screen
-        self.resizeImage(PATH_IMAGE_SPONSOR, "JPEG", self.scale(constraintH=80, size=im.size))
+        self.resizeImage(PATH_IMAGE_SPONSOR, "JPEG", self.scale(constraintH=int(DIM_SCREEN[1]/2), size=im.size))
         self.sponsor = Card(
             title=str(sponsor_raw.contents[1].contents[1].contents[1].attrs['alt']),
             # TODO: Parse description html (maybe allow it to italicize when printing it?)
@@ -471,7 +494,7 @@ class Environment:
                 if im:
                     break
 
-            self.resizeImage(movieImagePath, "JPEG", self.scale(constraintH=80, size=im.size))
+            self.resizeImage(movieImagePath, "JPEG", self.scale(constraintH=int(DIM_SCREEN[1]/2), size=im.size))
 
             self.movies.append(Card(
                 title=str(listing.contents[1].contents[3].contents[1].contents[0]),
