@@ -178,6 +178,8 @@ class Environment:
                       "click": False}
         self.movies = []
         self.gui = {}
+        self.gui_picture_toggle = True
+
         self.sponsor = Card
         # Define content list TODO: Settings - Save enabled/disabled content
         self.contentList = [[CONTENT_TEMPERATURE, PATH_IMAGE_GRAPH_TEMPERATURE, lambda func: self.surf_plot()],
@@ -349,14 +351,20 @@ class Environment:
         #            Button(COLOR_WHITE, pygame.Rect((0, 0), (60, DIM_SCREEN[1])), 0)
         #            ]
         # self.page = Page(pygame.image.load(PATH_IMAGE_BURLINGTON_LEFT), buttons)
-        self.gui['button_right'] = Button(COLOR_WHITE, pygame.Rect((DIM_SCREEN[0]-60, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
-        self.gui['button_left'] = Button(COLOR_WHITE, pygame.Rect((0, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
+        self.gui.clear()  # clear gui
+        if self.gui_picture_toggle:
+            self.gui['button_right'] = Button(COLOR_WHITE, pygame.Rect((DIM_SCREEN[0]-60, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
+        else:
+            self.gui['button_left'] = Button(COLOR_WHITE, pygame.Rect((0, 0), (60, DIM_SCREEN[1])), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         for element in self.gui.items():
             element[1].active(self.mouse)
-        if self.gui['button_right'].state:
-            self.surf_background = pygame.image.load(PATH_IMAGE_BURLINGTON_RIGHT)
-        if self.gui['button_left'].state:
-            self.surf_background = pygame.image.load(PATH_IMAGE_BURLINGTON_LEFT)
+            if element[1].state:  # if clicked
+                if element[0] == "button_left":
+                    self.contentList[self.cIndex][1] = PATH_IMAGE_BURLINGTON_LEFT
+                elif element[0] == "button_right":
+                    self.contentList[self.cIndex][1] = PATH_IMAGE_BURLINGTON_RIGHT
+                self.gui_picture_toggle = not self.gui_picture_toggle
+        self.surf_background = pygame.image.load(self.contentList[self.cIndex][1])  # load the background anyways
         # TODO: Either remove self.gui or clear it in self.setContent
 
     def surf_mainstreet(self):
@@ -523,7 +531,3 @@ class Environment:
 
     def scale(self, constraintH, size):
         return [int(size[0] / (size[1] / constraintH)), constraintH]
-
-    def guifunctions(self):
-        for element in self.gui:
-            self.gui[element].change(self.mouse)
