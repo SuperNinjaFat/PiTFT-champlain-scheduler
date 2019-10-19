@@ -1,11 +1,13 @@
 import sys
 import platform
+import math
 import pandas
 import matplotlib
 import matplotlib.pyplot
 import matplotlib.backends.backend_agg as agg
 import os
 import datetime
+import time
 import socket
 import pygame
 from pygame.locals import *
@@ -13,6 +15,7 @@ from PIL import Image
 from climata.usgs import DailyValueIO
 import requests
 from bs4 import BeautifulSoup
+import json
 
 # from html.parser import HTMLParser
 DIST = ""
@@ -40,6 +43,7 @@ DIR_BASE = os.path.join(os.path.dirname(__file__), '..')  # Base Directory
 # Paths
 PATH_IMAGE_OFFLINE = os.path.join(os.path.join(DIR_BASE, 'resource'), 'PiOffline.png')
 PATH_IMAGE_STARTUP = os.path.join(os.path.join(DIR_BASE, 'resource'), 'PiOnline.png')
+PATH_IMAGE_BLANK = os.path.join(os.path.join(DIR_BASE, 'resource'), 'Blank.png')
 PATH_IMAGE_GRAPH_TEMPERATURE = os.path.join(os.path.join(DIR_BASE, 'resource'), 'graph_temp_lake.png')
 PATH_IMAGE_BURLINGTON_LEFT = os.path.join(os.path.join(DIR_BASE, 'resource'), 'burlington_left.jpg')
 PATH_IMAGE_BURLINGTON_RIGHT = os.path.join(os.path.join(DIR_BASE, 'resource'), 'burlington_right.jpg')
@@ -87,7 +91,7 @@ pygame.time.set_timer(USEREVENT + 6, 900000)  # Every 15 minutes, download burli
 # print(pygame.font.get_fonts())
 if platform.system() == "Windows":
     print("Windows fonts")
-    #  TODO: Fix directory access outside of local directory
+    #  TODO: Test these full-path fonts on linux systems, then move fonts out of platform.system()-if statements.
     FONT_FALLOUT = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'r_fallouty.ttf'), 30)
     FONT_BM = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 10)
     FONT_MOVIE_TITLE = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 40)
@@ -110,13 +114,13 @@ screen = pygame.display.set_mode(DIM_SCREEN)
 # colors
 COLOR_BLACK = 0, 0, 0
 COLOR_WHITE = 255, 255, 255
-COLOR_ALPHA_WHITE = 255, 255, 255, 70  # 128
 COLOR_GRAY_19 = 31, 31, 31
 COLOR_GRAY_21 = 54, 54, 54
 COLOR_GRAY_41 = 105, 105, 105
 COLOR_ORANGE = 251, 126, 20
-COLOR_ALPHA_ORANGE = 251, 126, 20, 70  # 128
 COLOR_LAVENDER = 230, 230, 250
+COLOR_ALPHA_WHITE = 255, 255, 255, 70  # 128
+COLOR_ALPHA_ORANGE = 251, 126, 20, 70  # 128
 
 # urls
 URL_MAINSTREET = "https://www.mainstreetlanding.com"
@@ -168,6 +172,7 @@ class Button:
             self.state = True
         else:
             # pygame.draw.rect(screen, self.color, self.surf, self.width)
+            # https://stackoverflow.com/questions/6339057/draw-a-transparent-rectangle-in-pygame
             self.surf.fill(COLOR_ALPHA_WHITE)  # notice the alpha value in the color
             self.state = False
         screen.blit(self.surf, (self.dim[0], self.dim[1]))
@@ -183,6 +188,11 @@ class Button:
 class Environment:
     def __init__(self):
         # Initialize data buffers
+        self.map = None
+        self.defaultIndex = -1
+        self.custom_overlays = []
+        self.markers = []
+        self.buses = []
         self.data_temperature_water = None
         self.mouse = {"position": (0, 0),
                       "click": False}
@@ -195,16 +205,21 @@ class Environment:
         self.contentList = [
             [CONTENT_TEMPERATURE, PATH_IMAGE_GRAPH_TEMPERATURE, lambda func: self.surf_plot()],
             [CONTENT_PICTURE, PATH_IMAGE_BURLINGTON_LEFT, lambda func: self.surf_picture()],
-            [CONTENT_MAINSTREET, PATH_IMAGE_STARTUP, lambda func: self.surf_mainstreet()],
+            [CONTENT_MAINSTREET, PATH_IMAGE_BLANK, lambda func: self.surf_mainstreet()],
             # [CONTENT_SHUTTLE, PATH_IMAGE_STARTUP, lambda func: self.surf_shuttle()]
                             ]
-        self.surf_background = pygame.transform.scale(pygame.image.load(PATH_IMAGE_OFFLINE),
+        surf = pygame.Surface(DIM_SCREEN)
+        surf.convert()
+        surf.fill(COLOR_WHITE)
+        pygame.image.save(surf,
+                          os.path.join(os.path.join(DIR_BASE, 'resource'), 'Blank.png'))
+        self.surf_background = pygame.transform.scale(pygame.image.load(PATH_IMAGE_BLANK),
                                                       DIM_SCREEN)  # Set surface image to offline
         self.time_text = (None, None)  # Time Buffer
         self.slideshow = True  # slideshow toggler
         self.buttonDelay = False  # Button delay
         self.backlight = True  # Backlight is On
-        self.cIndex = CONTENT_TEMPERATURE['number']  # Start with lake temperature
+        self.cIndex = 0  # Start with lake temperature
 
         # Icons
         self.icon = [pygame.transform.scale(pygame.image.load(PATH_ICON_SLIDESHOW),
@@ -217,6 +232,7 @@ class Environment:
         self.pullData()  # Download data
         self.graph_temp()  # Graph data
         self.pullImageBurlington()  # Download Burlington images
+        self.pullShuttle()
 
         # You have to run a set-surface function before the slides start up.
         self.surf_background = pygame.image.load(self.contentList[self.cIndex][1])
@@ -228,12 +244,13 @@ class Environment:
     def menu(self):
         crashed = False
         while not crashed:
+            content_list_enough = len(self.contentList) > 1  # larger than one
             for event in pygame.event.get():
                 # Every 8 hours, download data
                 if event.type == USEREVENT + 1:  # Every 8 hours, download new data and render images.
                     self.pullData()
                     self.graph_temp()
-                if event.type == USEREVENT + 2 and self.slideshow:  # 10 seconds # 120000)  # Every 10 seconds, switch the surface.
+                if event.type == USEREVENT + 2 and content_list_enough and self.slideshow:  # 10 seconds # 120000)  # Every 10 seconds, switch the surface.
                     self.content_iterate()
                 if event.type == USEREVENT + 3:  # Every minute, refresh the clock.
                     self.pullTime()  # TODO: Make time toggleable and an options menu to do it.
@@ -254,6 +271,8 @@ class Environment:
                 # mouse
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     self.mouse['click'] = True
+                    if platform.system() == "Linux":
+                        self.reset_backlight()  # Whenever the user touches the screen, reset the backlight
                 elif event.type == pygame.MOUSEBUTTONUP:
                     self.mouse['click'] = False
                 else:
@@ -266,16 +285,15 @@ class Environment:
                         pygame.quit()
                     if event.key == pygame.K_BACKSLASH:
                         self.toggleSlideshow()
-                    if event.key == pygame.K_LEFT:
+                    if event.key == pygame.K_LEFT and content_list_enough:
                         self.content_iterate(True)
                         self.reset_slideshow()
-                    if event.key == pygame.K_RIGHT:
+                    if event.key == pygame.K_RIGHT and content_list_enough:
                         self.content_iterate()
                         self.reset_slideshow()
                     self.reset_buttondelay()
 
             self.mouse['position'] = pygame.mouse.get_pos()
-            # TODO: Move changes to the gui buttons to out here.
 
             # TODO: Touching the screen makes the screen refresh and the slideshow time reset
             # if self.slideshow:
@@ -288,10 +306,10 @@ class Environment:
                         pygame.quit()
                     if k == button_map[1]:
                         self.toggleSlideshow()
-                    if k == button_map[2]:
+                    if k == button_map[2] and content_list_enough:
                         self.content_iterate(True)
                         self.reset_slideshow()
-                    if k == button_map[3]:
+                    if k == button_map[3] and content_list_enough:
                         self.content_iterate()
                         self.reset_slideshow()
                     self.reset_buttondelay()  # Reset the tactile button delay
@@ -386,12 +404,10 @@ class Environment:
         self.gui.clear()  # clear gui
 
         movie = self.movies[0]
-        print("Screen width: ", DIM_SCREEN[0],", Image width: ", movie.img.get_size()[0])
-        print("Screen height: ", DIM_SCREEN[1],", Image height: ", movie.img.get_size()[1])
-        print("Coordinates: ", (int(DIM_SCREEN[0]/2) - int(movie.img.get_size()[0]/2), int(DIM_SCREEN[1]/2) - int(movie.img.get_size()[1]/2)))
-        screen.blit(movie.img, (int(DIM_SCREEN[0]/2) - int(movie.img.get_size()[0]/2), int(DIM_SCREEN[1]/2) - int(movie.img.get_size()[1]/2)))
+
+        screen.blit(movie.img, (int((int(DIM_SCREEN[0]/2) - int(movie.img.get_size()[0]/2))/3), int(DIM_SCREEN[1]/2) - int(movie.img.get_size()[1]/2)))
         text__title = FONT_MOVIE_TITLE.render(movie.title, True, COLOR_BLACK)
-        screen.blit(text__title, ((DIM_SCREEN[0] - text__title.get_size()[0]), int(DIM_SCREEN[0]/5)))
+        screen.blit(text__title, ((DIM_SCREEN[0] - text__title.get_size()[0]), int((int(DIM_SCREEN[1]/2) - int(movie.img.get_size()[1]/2))/4)))
 
         text__desc = FONT_MOVIE_DESC.render(movie.desc, True, COLOR_BLACK)
         screen.blit(text__desc, ((DIM_SCREEN[0] - text__desc.get_size()[0]) - 2, int(DIM_SCREEN[0]/3)))
@@ -554,3 +570,341 @@ class Environment:
 
     def scale(self, constraintH, size):
         return [int(size[0] / (size[1] / constraintH)), constraintH]
+
+    def pullShuttle(self):
+        html = requests.get(
+            "https://shuttle.champlain.edu/shuttledata")
+        self.getMarkerInfo(html)
+        self.getBusLocations(html)
+
+    def getMarkerInfo(self, html):
+        pass
+        # #  Validate result from Shuttle Maps Markers API Spreadsheet
+        # result = json.loads(html.text)
+        # if type(result) == 'undefined' or type(result.message) == 'undefined' or type(result.message) == list or result.message.length is None:
+        #     print('Unable to load data from Champlain Shuttle Maps Markers API.')
+        #     return
+        #
+        # #  Only records with map type of "shuttle" should be displayed on shuttle.champlain.edu
+        # results = filter(lambda x: (x['map_type'] == 'shuttle'), result.message)  # TODO: Check if this is actually filtering.
+        #
+        # #  Loop through each custom_overlays returned from the Shuttle Maps Markers API Spreadsheet looking for buses and custom_overlays
+        # for record in results:
+        #     if record.record_type == 'bus':
+        #         self.buses.push({
+        #             'api_data': record,
+        #             'gm_object': None
+        #         })
+        #     elif record['record_type'] == 'marker':
+        #         marker = {
+        #             'api_data': record,
+        #             'gm_object': google.maps.Marker({
+        #                 'position': google.maps.LatLng(record.lat, record.lon),
+        #                 'map': self.map, # map, #TODO: make map variable and object
+        #                 'icon': {
+        #                     'url': record.image_url,
+        #                     'size': google.maps.Size(record.width, record.height),
+        #                     'origin': google.maps.Point(0, 0),
+        #                     'anchor': google.maps.Point(math.floor(record.width/2), math.floor(record.height/2))
+        #                 },
+        #                 'zIndex': 1
+        #             })
+        #         }
+        #         self.markers.push(marker)
+        #
+        #         #  Uncomment to debug markers
+        #         #  print(marker);
+        #     elif record['record_type'] == 'custom_overlays':
+        #         self.custom_overlays.push({
+        #             'api_data': record,
+        #             'gm_object': None
+        #         })
+        #
+        # #  End results.forEach ...
+        #
+        # #  End return $.getJSON to CC Shuttle Maps Marker API.
+
+    def getBusLocations(self, html):
+        pass
+    #     result = json.loads(html.text)
+    #     for bus in result:
+    #         busIndex = -1
+    #
+    #         # If all required attributes are returned from the shuttle tracking API, process the new bus tracking data and update the bus location on the map
+    #         if type(bus['UnitID']) == 'undefined' or type(bus['Date_Time_ISO']) == 'undefined' or type(
+    #                 bus['Lat']) == 'undefined' or type(bus['Lon']) == 'undefined':
+    #             print("Bus from Shuttle Tracking API has missing attributes:")
+    #             print(bus)
+    #
+    #         for i in range(len(self.buses)):
+    #
+    #             #  Get current bus ID
+    #             if self.buses[i]['api_data']['id'] == bus['UnitID']:
+    #                 busIndex = i
+    #             #  Get default bus index, which is used when a bus does not have display info configured in Shuttle Maps Markers API
+    #             if not self.defaultIndex and self.buses[i]['api_data']['id'] == 'default':
+    #                 self.defaultIndex = i
+    #
+    #         #  If no bus display information was found (i.e. bus ID was not in CC Shuttle Maps Marker API), then use default config
+    #         #  that should be set up in that api (Look for bus with ID column set to "default").
+    #         if not busIndex and not self.defaultIndex:
+    #             self.buses.extend(self.buses)#self.buses.push($.extend({}, self.buses[self.defaultIndex]))  # TODO: test and make sure this is actually extending the list
+    #             self.buses[len(self.buses)-1]['api_data']['id'] = bus['UnitID'];
+    #
+    #         if not busIndex:
+    #             print("Cannot display bus " + bus['UnitID'] + ": no bus with this ID exists AND there is no default bus configured in Shuttle Maps Markers API");
+    #             return
+    #
+    #         #  Determine how many minutes ago the shuttle was updated
+    #         bApi = self.buses[busIndex]['api_data']
+    #         bMarker = self.buses[busIndex]['gm_object']
+    #         updated = datetime.date(bus['Date_Time_ISO'])  # TODO: Test: needs to make a date object and parse the time
+    #         now = datetime.date.today()
+    #         # Adapted from https://stackoverflow.com/questions/2788871/date-difference-in-minutes-in-python
+    #         # Convert to Unix timestamp
+    #         d1_ts = time.mktime(now.timetuple())
+    #         d2_ts = time.mktime(updated.timetuple())
+    #
+    #         # They are now in seconds, subtract and then divide by 60 to get minutes.
+    #         bApi['minutesAgoUpdated'] = int(d2_ts - d1_ts) / 60
+    #
+    #         #  new, recently moved or stale?
+    #         isNewBus = not bMarker,  # TODO: Does this even work?
+    #         hasMovedSinceLastUpdate = False;
+    #         if not isNewBus:
+    #             latChange = abs(bApi['lat'] - bus['Lat'])
+    #             lonChange = abs(bApi['lon'] - bus['Lon'])
+    #             if latChange > .0001 or lonChange > .0001:
+    #                 hasMovedSinceLastUpdate = True
+    #
+    #         #  If bus has been active within the last 30 minutes, then display it on the map.  In order for a bus to show up, it needs
+    #         #  to be broadcasting its location and not be still for 30 or more minutes.
+    #         if bApi['minutesAgoUpdated'] < 30:
+    #             if not isNewBus and hasMovedSinceLastUpdate:
+    #                 #if (type(bus.animation == "undefined") or !bus.animation.animating):
+    #                 #bMarker.setPosition(google.maps.LatLng(bApi.lat,bApi.lon));
+    #                 self.animateBus(self.buses[busIndex], {
+    #                     'lat': bus['Lat'],
+    #                     'lon': bus['Lon']
+    #                 })
+    #                 #}
+    #
+    #             elif isNewBus:
+    #                 #  update bus's model with new lat, lon
+    #                 bApi['lat'] = bus['Lat']
+    #                 bApi['lon'] = bus['Lon']
+    #
+    #                 #  update view with new GM Marker for bus
+    #                 marker = google.maps.Marker({
+    #                     'position': google.maps.LatLng(float(bApi['lat']), float(bApi['lon'])),
+    #                     'map': self.map,
+    #                     'icon': {
+    #                         'url': bApi['image_url'],
+    #                         'size': google.maps.Size(int(bApi['width']), int(bApi['height'])),
+    #                         'origin': google.maps.Point(0,0),
+    #                         'anchor': google.maps.Point(math.floor(bApi['width']/2), bApi['height'])
+    #                     },
+    #                     'title': bApi['title'],
+    #                     'zIndex': 3
+    #                 })
+    #                 self.buses[busIndex].gm_object = marker;
+    #
+    #                 #  Uncomment to debug bus marker creation
+    #                 #  console.log("created bus:");
+    #                 #  console.log(buses[busIndex]);
+    #
+    # # Implement Animate Marker Functionality
+    # # -------------------------------------
+    # # Rather than just set the position of a bus when it moves to a new location, these functions
+    # # smoothly animate it to the new location.
+
+    def animateBus(self, bus, newLatLon):
+        pass
+        bus.animation = {
+            'animating': True,
+            'i': 0,
+            'deltaLat': (float(newLatLon['lat']) - float(bus['api_data']['lat']))/50,
+            'deltaLon': (float(newLatLon['lon']) - float(bus['api_data']['lon']))/50
+        }
+        self._animateBus(bus)
+
+    def _animateBus(self, bus):
+        pass
+        # # update model
+        # bus['api_data']['lat'] = float(bus['api_data']['lat']) + bus['animation']['deltaLat']
+        # bus['api_data']['lon'] = float(bus['api_data']['lon']) + bus['animation']['deltaLon']
+        #
+        # # update view
+        # latlng = google.maps.LatLng(bus['api_data']['lat'], bus['api_data']['lon'])
+        # bus['gm_object'].setPosition(latlng)  # TODO: Find out how setPosition() is supposed to work
+        # google.maps.event.trigger(self.map, 'resize')
+        # if bus['animation']['i'] != 50:
+        #     bus['animation']['i'] = bus['animation']['i'] + 1
+        #     # TODO: implement setTimeout https://codeburst.io/javascript-like-settimeout-functionality-in-python-18c4773fa1fd
+        #     # setTimeout(function() {
+        #     #     _animateBus(bus)
+        #     # }, 10)
+
+    def showCustomOverlays(self, zoom_level):
+        pass
+        # TODO: From here and down is not converted from JavaScript yet.
+
+    #     if (CC_SHUTTLE.overlays_initialized && CC_SHUTTLE.zoom_level == zoom_level) return;
+    #
+    #     // update model's zoom_level
+    #     CC_SHUTTLE.zoom_level = zoom_level;
+    #
+    #     // update view
+    #     CC_SHUTTLE.custom_overlays.forEach(function(overlay) {
+    #         if (parseInt(overlay.api_data.zoom_level) === parseInt(zoom_level)) {
+    #             if (overlay.gm_object === null) {
+    #
+    #                 // Custom overlays are added to the map by defining a rectangular region using lat/lon coordinates of the upper left and bottom
+    #                 // right.  We're storing that info in bounds.
+    #                 var bounds = new google.maps.LatLngBounds(
+    #                     new google.maps.LatLng(overlay.api_data.bounds_southwest_lat, overlay.api_data.bounds_southwest_lon),
+    #                     new google.maps.LatLng(overlay.api_data.bounds_northeast_lat, overlay.api_data.bounds_northeast_lon)
+    #                 );
+    #
+    #                 var gm_object = new ShuttleOverlay(bounds, overlay.api_data.image_url, map);
+    #                 overlay.gm_object = gm_object;
+    #             }
+    #             else {
+    #                 overlay.gm_object.show();
+    #             }
+    #         }
+    #         else {
+    #             if (overlay.gm_object !== null) {
+    #                 overlay.gm_object.hide();
+    #             }
+    #         }
+    #     });
+    # }
+    #
+    # function scaleIcons(marker_scale) {
+    #
+    #     if (CC_SHUTTLE.overlays_initialized && CC_SHUTTLE.marker_scale == marker_scale) return;
+    #
+    #     // update model
+    #     CC_SHUTTLE.marker_scale = marker_scale;
+    #
+    #     // update view icon size
+    #     CC_SHUTTLE.buses.forEach(function(bus) {
+    #         if (!bus.gm_object) return;
+    #         var newIconWidth = Math.floor(bus.api_data.width * mapSize.marker_scale),
+    #             iconSizeDelta = bus.api_data.width - newIconWidth,
+    #             newIconHeight;
+    #         if (newIconWidth < bus.api_data.width) {
+    #             newIconHeight = parseFloat(bus.api_data.height) - iconSizeDelta;
+    #         }
+    #         else {
+    #             newIconHeight = parseFloat(bus.api_data.height) + iconSizeDelta;
+    #         }
+    #
+    #         bus.gm_object.setIcon({
+    #             url: bus.api_data.image_url,
+    #             size: new google.maps.Size(parseFloat(bus.api_data.width), parseFloat(bus.api_data.height)),
+    #             scaledSize: new google.maps.Size(newIconWidth, newIconHeight),
+    #             origin: new google.maps.Point(0, 0),
+    #             anchor: new google.maps.Point(Math.floor(newIconWidth/2), newIconHeight)
+    #         });
+    #
+    #     });
+    #
+    # }
+    #
+    # function getMapSize() {
+    #     var zoom = 15,
+    #
+    #     // height should be applied to padding-bottom of the map_container div
+    #     // E.g., for a ratio 16:9, use 100%/16*9 = "56.25%"
+    #         height = '50%',
+    #         marker_scale = 1,
+    #         viewWidth = $(window).width() + getScrollBarWidth(),
+    #         viewHeight = $(window).height();
+    #
+    #     if (viewWidth <= 350) {
+    #         zoom =  14;
+    #         height = '95%';
+    #         marker_scale = .5;
+    #     }
+    #     else if (viewWidth <= 400) {
+    #         zoom =  14;
+    #         height = '85%';
+    #         marker_scale = .5;
+    #     }
+    #     else if (viewWidth <= 455) {
+    #         zoom =  14;
+    #         height = '85%';
+    #         marker_scale = .5;
+    #     }
+    #     else if (viewWidth <= 550) {
+    #         zoom =  14;
+    #         height = '75%';
+    #         marker_scale = .5;
+    #     }
+    #     else if (viewWidth <= 768) {
+    #         zoom =  14;
+    #         height = '55%';
+    #         marker_scale = .5;
+    #     }
+    #     else if (viewWidth <= 992) {
+    #         zoom =  15;
+    #         height = '75%';
+    #         marker_scale = 1;
+    #     }
+    #     else if (viewWidth <= 1200) {
+    #         zoom =  15;
+    #         height = '65%';
+    #         marker_scale = 1;
+    #     }
+    #
+    #     // This tweak is for the /index/embedshuttle action, which is used on campus signage screens.  It
+    #     // ensures that the dimensions of the map matches the height of the viewport.
+    #     if (/embedshuttle/.test(window.location.href)) {
+    #         height = '100vh';
+    #         zoom = viewHeight < 540 || viewWidth < 555 ? 14 : 15;
+    #         marker_scale = zoom == 14 ? .5 : 1;
+    #     }
+    #
+    #     return {
+    #         zoom: zoom,
+    #         height: height,
+    #         marker_scale: marker_scale
+    #     }
+    # }
+    #
+    # function refreshOverlays() {
+    #
+    #     mapSize = getMapSize();
+    #
+    #     // Check if icons need to be resized
+    #     if (mapSize.marker_scale !== CC_SHUTTLE.marker_scale) {
+    #         scaleIcons(mapSize.marker_scale);
+    #     }
+    #
+    #     showCustomOverlays(mapSize.zoom);
+    #
+    #     $(".map_container").css('padding-bottom',mapSize.height);
+    #
+    #     map.setZoom(Math.floor(mapSize.zoom));
+    #
+    #     setTimeout(function() {
+    #         map.panTo(CC_SHUTTLE.center);
+    #     }, 100);
+    #
+    #     google.maps.event.trigger(map, 'resize');
+    #
+    #     CC_SHUTTLE.overlays_initialized = true;
+    #
+    # }
+    #
+    # // Utility Functions
+    # // -----------------
+    # function getScrollBarWidth() {
+    #     var $outer = $('<div>').css({visibility: 'hidden', width: 100, overflow: 'scroll'}).appendTo('body'),
+    #         widthWithScroll = $('<div>').css({width: '100%'}).appendTo($outer).outerWidth();
+    #     $outer.remove();
+    #     return 100 - widthWithScroll;
+    # }
+

@@ -26,3 +26,9 @@ cd /Documents/Github/PiTFT-lakechamplain-temp/
 
 MPLBACKEND=Agg python3 ./pygameElements/__init__.py
 ```
+
+# SDL fix:
+Run:
+```
+sudo fixsdl.sh
+```
