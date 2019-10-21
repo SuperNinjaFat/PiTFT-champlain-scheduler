@@ -16,8 +16,10 @@ from climata.usgs import DailyValueIO
 import requests
 from bs4 import BeautifulSoup
 import json
+from pygameElements.calendar import *
 
 # from html.parser import HTMLParser
+
 DIST = ""
 
 if platform.system() == "Windows":
@@ -50,6 +52,9 @@ PATH_IMAGE_BURLINGTON_RIGHT = os.path.join(os.path.join(DIR_BASE, 'resource'), '
 PATH_IMAGE_SPONSOR = os.path.join(os.path.join(DIR_BASE, 'resource'), 'sponsor.jpg')
 PATH_ICON_SLIDESHOW = os.path.join(os.path.join(DIR_BASE, 'resource'), 'mode_slideshow.png')
 PATH_ICON_MANA = os.path.join(os.path.join(DIR_BASE, 'resource'), 'Mana.png')
+
+# Tracking Status
+TRACKING_DEFAULT = "Not tracking for next class."
 
 # PiTFT Button Map
 button_map = (23, 22, 27, 18)
@@ -97,6 +102,7 @@ if platform.system() == "Windows":
     FONT_BM = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 10)
     FONT_MOVIE_TITLE = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 40)
     FONT_MOVIE_DESC = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'r_fallouty.ttf'), 30)
+    FONT_CLASS = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 40)
 elif platform.system() == "Linux":
     pygame.mouse.set_visible(False)
     print("Linux fonts")
@@ -132,14 +138,16 @@ ICON_SLIDESHOW = 0  # Slideshow Icon
 ICON_TEST = 1  # Slideshow Icon
 
 # Content switching
-CONTENT_TEMPERATURE = {"number":    0,
-                       "name":      "Temperature: Lake"}
-CONTENT_PICTURE = {"number":    1,
-                   "name":      "Burlington Live Camera"}
+CONTENT_TEMPERATURE = {"number": 0,
+                       "name": "Temperature: Lake"}
+CONTENT_PICTURE = {"number": 1,
+                   "name": "Burlington Live Camera"}
 CONTENT_MAINSTREET = {"number": 2,
-                      "name":   "Mainstreet Landing Movies"}
-CONTENT_SHUTTLE = {"number":    3,
-                   "name":      "Shuttle Map"}
+                      "name": "Mainstreet Landing Movies"}
+CONTENT_SHUTTLE = {"number": 3,
+                   "name": "Shuttle Map"}
+CONTENT_CLASS = {"number": 4,
+                 "name": "Class Shuttle Alert"}
 
 
 class Card:
@@ -158,8 +166,9 @@ def downloadImage(output, address):
 
 
 class Button:
-    def __init__(self, color=COLOR_GRAY_19, surf=None, dim=None, width=1):
-        self.color = color
+    def __init__(self, color_active=COLOR_ALPHA_ORANGE, color_inactive=COLOR_ALPHA_WHITE, surf=None, dim=None, width=1):
+        self.color_inactive = color_inactive
+        self.color_active = color_active
         self.surf = surf  # (DIM_SCREEN[0] - 60, 0), (60, DIM_SCREEN[1]) right
         self.dim = dim
         self.width = width
@@ -170,14 +179,15 @@ class Button:
                 and self.dim[1] + self.dim[3] > mouse['position'][1] > self.dim[1] \
                 and mouse['click']:
             # pygame.draw.rect(screen, COLOR_ORANGE, self.surf)
-            self.surf.fill(COLOR_ALPHA_ORANGE)  # notice the alpha value in the color
+            self.surf.fill(self.color_active)  # notice the alpha value in the color
             self.state = True
         else:
             # pygame.draw.rect(screen, self.color, self.surf, self.width)
             # https://stackoverflow.com/questions/6339057/draw-a-transparent-rectangle-in-pygame
-            self.surf.fill(COLOR_ALPHA_WHITE)  # notice the alpha value in the color
+            self.surf.fill(self.color_inactive)  # notice the alpha value in the color
             self.state = False
         screen.blit(self.surf, (self.dim[0], self.dim[1]))
+
 
 #
 # class Page:
@@ -190,6 +200,8 @@ class Button:
 class Environment:
     def __init__(self):
         # Initialize data buffers
+        self.classTrackingTime = None
+        self.classTrackingStatus = TRACKING_DEFAULT
         self.map = None
         self.defaultIndex = -1
         self.custom_overlays = []
@@ -202,15 +214,17 @@ class Environment:
         self.gui = {}
         self.gui_picture_toggle = True
         self.gui_mainstreet_iter = 0
+        self.gui_tracking = False
 
         self.sponsor = Card
         # Define content list TODO: Settings - Save enabled/disabled content
         self.contentList = [
-            [CONTENT_TEMPERATURE, PATH_IMAGE_GRAPH_TEMPERATURE, lambda func: self.surf_plot()],
-            [CONTENT_PICTURE, PATH_IMAGE_BURLINGTON_LEFT, lambda func: self.surf_picture()],
+            # [CONTENT_TEMPERATURE, PATH_IMAGE_GRAPH_TEMPERATURE, lambda func: self.surf_plot()],
+            # [CONTENT_PICTURE, PATH_IMAGE_BURLINGTON_LEFT, lambda func: self.surf_picture()],
             [CONTENT_MAINSTREET, PATH_IMAGE_BLANK, lambda func: self.surf_mainstreet()],
-            # [CONTENT_SHUTTLE, PATH_IMAGE_STARTUP, lambda func: self.surf_shuttle()]
-                            ]
+            # [CONTENT_SHUTTLE, PATH_IMAGE_STARTUP, lambda func: self.surf_shuttle()],
+            [CONTENT_CLASS, PATH_IMAGE_BLANK, lambda func: self.surf_class()],
+        ]
         surf = pygame.Surface(DIM_SCREEN)
         surf.convert()
         surf.fill(COLOR_WHITE)
@@ -235,6 +249,8 @@ class Environment:
         self.pullData()  # Download data
         self.graph_temp()  # Graph data
         self.pullImageBurlington()  # Download Burlington images
+        html = requests.get("https://forms.champlain.edu/googlespreadsheet/find/type/shuttlemapsapi")
+        self.getMarkerInfo(html)
         self.pullShuttle()
 
         # You have to run a set-surface function before the slides start up.
@@ -303,7 +319,6 @@ class Environment:
             # TODO: Touching the screen makes the screen refresh and the slideshow time reset
             # if self.slideshow:
 
-
             # Scan the buttons
             for k in button_map:  # TODO: IMPLEMENT BUTTONS FOR ALL PI PLATFORMS
                 if not GPIO.input(k) and not self.buttonDelay and DIST == "000e":  # platform.system() == "Linux":
@@ -362,7 +377,7 @@ class Environment:
 
         # Content Name
         cont__name = FONT_BM.render(self.contentList[self.cIndex][0]['name'], True, COLOR_BLACK)
-        screen.blit(cont__name, ((DIM_SCREEN[0]-cont__name.get_size()[0])-2, 1))
+        screen.blit(cont__name, ((DIM_SCREEN[0] - cont__name.get_size()[0]) - 2, 1))
 
         # Clock
         # pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (40, 13)), 0)  # Clock backing
@@ -387,9 +402,15 @@ class Environment:
         self.gui.clear()  # clear gui
         if self.gui_picture_toggle:
             # https://stackoverflow.com/questions/6339057/draw-a-transparent-rectangle-in-pygame
-            self.gui['button_right'] = Button(COLOR_ALPHA_WHITE, pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA), (DIM_SCREEN[0] - 60, 0, 60, DIM_SCREEN[1]), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
+            self.gui['button_right'] = Button(color_inactive=COLOR_ALPHA_WHITE,
+                                              surf=pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA),
+                                              dim=(DIM_SCREEN[0] - 60, 0, 60, DIM_SCREEN[1]),
+                                              width=0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         else:
-            self.gui['button_left'] = Button(COLOR_ALPHA_WHITE, pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA), (0, 0, 60, DIM_SCREEN[1]), 0)# (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
+            self.gui['button_left'] = Button(color_inactive=COLOR_ALPHA_WHITE,
+                                             surf=pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA),
+                                             dim=(0, 0, 60, DIM_SCREEN[1]),
+                                             width=0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         for element in self.gui.items():
             element[1].active(self.mouse)
             if element[1].state:  # if clicked
@@ -404,32 +425,32 @@ class Environment:
     def surf_mainstreet(self):
         # TODO: https://www.mainstreetlanding.com/performing-arts-center/daily-rental-information/movies-at-main-street-landing/
         # TODO: https://stackoverflow.com/questions/18294711/extracting-images-from-html-pages-with-python
-        # TODO: Make a sub-screen that allows you to flip through the content held in the movie cards.
-        # and scroll through movie descriptions
-        self.gui.clear()  # clear gui
+        # TODO: Make descriptions easier to read and scroll through.
 
         self.gui.clear()  # clear gui
         self.surf_background = pygame.image.load(self.contentList[self.cIndex][1])  # load the background
         if 0 < self.gui_mainstreet_iter < len(self.movies) - 1:  # if in middle of movie list
-            self.gui['button_right'] = Button(COLOR_ALPHA_LAVENDER,
-                                              pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA),
-                                              (DIM_SCREEN[0] - 60, 0, 60, DIM_SCREEN[1]),
-                                              0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=
-            self.gui['button_left'] = Button(COLOR_ALPHA_LAVENDER,
-                                             pygame.Surface((60, DIM_SCREEN[1]),
+            self.gui['button_right'] = Button(color_inactive=COLOR_ALPHA_LAVENDER,
+                                              surf=pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA),
+                                              dim=(DIM_SCREEN[0] - 60, 0, 60, DIM_SCREEN[1]),
+                                              width=0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=
+            self.gui['button_left'] = Button(color_inactive=COLOR_ALPHA_LAVENDER,
+                                             surf=pygame.Surface((60, DIM_SCREEN[1]),
                                                             pygame.HWSURFACE | pygame.SRCALPHA),
-                                             (0, 0, 60, DIM_SCREEN[1]),
-                                             0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
+                                             dim=(0, 0, 60, DIM_SCREEN[1]),
+                                             width=0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         elif self.gui_mainstreet_iter == 0:
-            self.gui['button_right'] = Button(COLOR_ALPHA_LAVENDER,
-                                              pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA),
-                                              (DIM_SCREEN[0] - 60, 0, 60, DIM_SCREEN[1]),
-                                              0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=
+            self.gui['button_right'] = Button(color_inactive=COLOR_ALPHA_LAVENDER,
+                                              surf=pygame.Surface((60, DIM_SCREEN[1]),
+                                                                  pygame.HWSURFACE | pygame.SRCALPHA),
+                                              dim=(DIM_SCREEN[0] - 60, 0, 60, DIM_SCREEN[1]),
+                                              width=0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=
         elif self.gui_mainstreet_iter == len(self.movies) - 1:  # if at back of movie list
-            self.gui['button_left'] = Button(COLOR_ALPHA_LAVENDER,
-                                             pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA),
-                                             (0, 0, 60, DIM_SCREEN[1]),
-                                             0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
+            self.gui['button_left'] = Button(color_inactive=COLOR_ALPHA_LAVENDER,
+                                             surf=pygame.Surface((60, DIM_SCREEN[1]),
+                                                                 pygame.HWSURFACE | pygame.SRCALPHA),
+                                             dim=(0, 0, 60, DIM_SCREEN[1]),
+                                             width=0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         for element in self.gui.items():
             element[1].active(self.mouse)
             if element[1].state and not self.buttonDelay:  # if clicked
@@ -441,16 +462,48 @@ class Environment:
 
         movie = self.movies[self.gui_mainstreet_iter]
 
-        screen.blit(movie.img, (int((int(DIM_SCREEN[0]/2) - int(movie.img.get_size()[0]/2))/3), int(DIM_SCREEN[1]/2) - int(movie.img.get_size()[1]/2)))
+        screen.blit(movie.img, (int((int(DIM_SCREEN[0] / 2) - int(movie.img.get_size()[0] / 2)) / 3),
+                                int(DIM_SCREEN[1] / 2) - int(movie.img.get_size()[1] / 2)))
         text__title = FONT_MOVIE_TITLE.render(movie.title, True, COLOR_BLACK)
-        screen.blit(text__title, ((DIM_SCREEN[0] - text__title.get_size()[0]), int((int(DIM_SCREEN[1]/2) - int(movie.img.get_size()[1]/2))/4)))
+        screen.blit(text__title, ((DIM_SCREEN[0] - text__title.get_size()[0]),
+                                  int((int(DIM_SCREEN[1] / 2) - int(movie.img.get_size()[1] / 2)) / 4)))
 
         text__desc = FONT_MOVIE_DESC.render(movie.desc, True, COLOR_BLACK)
-        screen.blit(text__desc, ((DIM_SCREEN[0] - text__desc.get_size()[0]) - 2, int(DIM_SCREEN[0]/3)))
-
+        screen.blit(text__desc, ((DIM_SCREEN[0] - text__desc.get_size()[0]) - 2, int(DIM_SCREEN[1] / 3)))
 
     def surf_shuttle(self):  # TODO: https://shuttle.champlain.edu/
         pass
+
+    def surf_class(
+            self):  # TODO: Consists of a button or scanner that activates an alert for the bus before your next class.
+        self.gui.clear()  # clear gui
+        self.gui['button_tracker'] = Button(color_inactive=COLOR_BLACK,
+                                            surf=pygame.Surface((80, 80), pygame.HWSURFACE),
+                                            dim=(int(DIM_SCREEN[0] / 2) - 80, int(DIM_SCREEN[1] / 2), 80,
+                                             int(DIM_SCREEN[1] / 2) + 80),
+                                            width=0)  # (left top width, left top height, right bottom width, right bottom height)
+        if self.classTrackingTime:
+            thirtyminsbefore = self.classTrackingTime - datetime.timedelta(minutes=30)
+            here = False
+            for bus in self.buses:
+                if bus['api_data']['lat'] == 44.6116083 and bus['api_data']['lon'] == -73.1620276:  # PLACEHOLDER COORD, figure out actual ranges and directions
+                    here = True
+            if here and datetime.datetime.now() > thirtyminsbefore:  # TODO: determine direction and bus lat and lon
+                print("Bus is here!")
+                self.setTrackingHere()
+                # TODO: Play sound
+                # TODO: Everything below should be put into a function to reset the tracking state.
+                here = False
+                self.gui_tracking = False
+                self.classTrackingTime = None
+        for element in self.gui.items():
+            element[1].active(self.mouse)
+            if element[1].state and not self.gui_tracking:  # if clicked
+                if element[0] == "button_tracker":
+                    self.gui_tracking = True
+                    self.setTrackingName()
+        text__status = FONT_CLASS.render(self.classTrackingStatus, True, COLOR_BLACK)
+        screen.blit(text__status, ((DIM_SCREEN[0] - text__status.get_size()[0]) - 2, int(DIM_SCREEN[1] / 3)))
 
     def surf_plot(self):
         pass
@@ -522,7 +575,7 @@ class Environment:
         downloadImage('sponsor.jpg',
                       URL_MAINSTREET + "/" + str(sponsor_raw.contents[1].contents[1].contents[1].attrs['src']))
         im = Image.open(PATH_IMAGE_SPONSOR)  # Rescale the image to fit into the screen
-        self.resizeImage(PATH_IMAGE_SPONSOR, "JPEG", self.scale(constraintH=int(DIM_SCREEN[1]/2), size=im.size))
+        self.resizeImage(PATH_IMAGE_SPONSOR, "JPEG", self.scale(constraintH=int(DIM_SCREEN[1] / 2), size=im.size))
         self.sponsor = Card(
             title=str(sponsor_raw.contents[1].contents[1].contents[1].attrs['alt']),
             # TODO: Parse description html (maybe allow it to italicize when printing it?)
@@ -546,7 +599,7 @@ class Environment:
                 if im:
                     break
 
-            self.resizeImage(movieImagePath, "JPEG", self.scale(constraintH=int(DIM_SCREEN[1]/2), size=im.size))
+            self.resizeImage(movieImagePath, "JPEG", self.scale(constraintH=int(DIM_SCREEN[1] / 2), size=im.size))
 
             self.movies.append(Card(
                 title=str(listing.contents[1].contents[3].contents[1].contents[0]),
@@ -608,8 +661,6 @@ class Environment:
         return [int(size[0] / (size[1] / constraintH)), constraintH]
 
     def pullShuttle(self):
-        html = requests.get("https://forms.champlain.edu/googlespreadsheet/find/type/shuttlemapsapi")
-        self.getMarkerInfo(html)
         html = requests.get("https://shuttle.champlain.edu/shuttledata")
         self.getBusLocations(html)
 
@@ -689,17 +740,20 @@ class Environment:
             #  If no bus display information was found (i.e. bus ID was not in CC Shuttle Maps Marker API), then use default config
             #  that should be set up in that api (Look for bus with ID column set to "default").
             if not busIndex and not self.defaultIndex:
-                self.buses.extend(self.buses)#self.buses.push($.extend({}, self.buses[self.defaultIndex]))  # TODO: test and make sure this is actually extending the list
-                self.buses[len(self.buses)-1]['api_data']['id'] = bus['UnitID'];
+                self.buses.extend(
+                    self.buses)  # self.buses.push($.extend({}, self.buses[self.defaultIndex]))  # TODO: test and make sure this is actually extending the list
+                self.buses[len(self.buses) - 1]['api_data']['id'] = bus['UnitID'];
 
             if not busIndex:
-                print("Cannot display bus " + bus['UnitID'] + ": no bus with this ID exists AND there is no default bus configured in Shuttle Maps Markers API");
+                print("Cannot display bus " + bus[
+                    'UnitID'] + ": no bus with this ID exists AND there is no default bus configured in Shuttle Maps Markers API");
                 return
 
             #  Determine how many minutes ago the shuttle was updated
             bApi = self.buses[busIndex]['api_data']
             bMarker = self.buses[busIndex]['gm_object']
-            updated = datetime.datetime.strptime((bus['Date_Time_ISO'][:19]).strip(), "%Y-%m-%dT%H:%M:%S")  # TODO: Test: needs to make a date object and parse the time
+            updated = datetime.datetime.strptime((bus['Date_Time_ISO'][:19]).strip(),
+                                                 "%Y-%m-%dT%H:%M:%S")  # TODO: Test: needs to make a date object and parse the time
             now = datetime.datetime.today()
             # Adapted from https://stackoverflow.com/questions/2788871/date-difference-in-minutes-in-python
             # Convert to Unix timestamp
@@ -719,25 +773,25 @@ class Environment:
                     hasMovedSinceLastUpdate = True
 
             if bApi['minutesAgoUpdated'] < 5000:
-                print("      : \"" + bApi['title'] + "\" : " + str(bApi['minutesAgoUpdated']))
+                print("      : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(bApi['minutesAgoUpdated']))
 
             #  If bus has been active within the last 30 minutes, then display it on the map.  In order for a bus to show up, it needs
             #  to be broadcasting its location and not be still for 30 or more minutes.
             if bApi['minutesAgoUpdated'] < 30:
                 if not isNewBus and hasMovedSinceLastUpdate:
-                    #if (type(bus.animation == "undefined") or !bus.animation.animating):
-                    #bMarker.setPosition(google.maps.LatLng(bApi.lat,bApi.lon));
+                    # if (type(bus.animation == "undefined") or !bus.animation.animating):
+                    # bMarker.setPosition(google.maps.LatLng(bApi.lat,bApi.lon));
                     self.animateBus(self.buses[busIndex], {
                         'lat': bus['Lat'],
                         'lon': bus['Lon']
                     })
-                    #}
-                    print(">     : \"" + bApi['title'] + "\" : " + str(bApi['minutesAgoUpdated']))
+                    # }
+                    print(">     : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(bApi['minutesAgoUpdated']))
                 elif isNewBus:
                     #  update bus's model with new lat, lon
                     bApi['lat'] = bus['Lat']
                     bApi['lon'] = bus['Lon']
-                    print(">New! : \"" + bApi['title'] + "\" : " + str(bApi['minutesAgoUpdated']))
+                    print(">New! : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(bApi['minutesAgoUpdated']))
 
                     #  update view with new GM Marker for bus
                     marker = None
@@ -767,8 +821,8 @@ class Environment:
         bus.animation = {
             'animating': True,
             'i': 0,
-            'deltaLat': (float(newLatLon['lat']) - float(bus['api_data']['lat']))/50,
-            'deltaLon': (float(newLatLon['lon']) - float(bus['api_data']['lon']))/50
+            'deltaLat': (float(newLatLon['lat']) - float(bus['api_data']['lat'])) / 50,
+            'deltaLon': (float(newLatLon['lon']) - float(bus['api_data']['lon'])) / 50
         }
         self._animateBus(bus)
 
@@ -945,3 +999,12 @@ class Environment:
         # $outer.remove();
         # return 100 - widthWithScroll;
 
+    def setTrackingName(self):
+        eTime, event = pullCalendarClass()
+        if not eTime:
+            self.classTrackingStatus = event + " Not tracking."
+        self.classTrackingStatus = "\"" + event + "\" at " + eTime.strftime("%I:%M %p")
+        self.classTrackingTime = eTime
+
+    def setTrackingHere(self):
+        self.classTrackingStatus = "Your bus is here for " + self.classTrackingStatus
