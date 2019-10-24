@@ -6,6 +6,7 @@ import matplotlib
 import matplotlib.pyplot
 import matplotlib.backends.backend_agg as agg
 import os
+import os.path
 import datetime
 import time
 import socket
@@ -16,7 +17,10 @@ from climata.usgs import DailyValueIO
 import requests
 from bs4 import BeautifulSoup
 import json
-from pygameElements.calendar import *
+import pickle
+from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 
 # from html.parser import HTMLParser
 
@@ -403,12 +407,14 @@ class Environment:
         if self.gui_picture_toggle:
             # https://stackoverflow.com/questions/6339057/draw-a-transparent-rectangle-in-pygame
             self.gui['button_right'] = Button(color_inactive=COLOR_ALPHA_WHITE,
-                                              surf=pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA),
+                                              surf=pygame.Surface((60, DIM_SCREEN[1]),
+                                                                  pygame.HWSURFACE | pygame.SRCALPHA),
                                               dim=(DIM_SCREEN[0] - 60, 0, 60, DIM_SCREEN[1]),
                                               width=0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         else:
             self.gui['button_left'] = Button(color_inactive=COLOR_ALPHA_WHITE,
-                                             surf=pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA),
+                                             surf=pygame.Surface((60, DIM_SCREEN[1]),
+                                                                 pygame.HWSURFACE | pygame.SRCALPHA),
                                              dim=(0, 0, 60, DIM_SCREEN[1]),
                                              width=0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         for element in self.gui.items():
@@ -431,12 +437,13 @@ class Environment:
         self.surf_background = pygame.image.load(self.contentList[self.cIndex][1])  # load the background
         if 0 < self.gui_mainstreet_iter < len(self.movies) - 1:  # if in middle of movie list
             self.gui['button_right'] = Button(color_inactive=COLOR_ALPHA_LAVENDER,
-                                              surf=pygame.Surface((60, DIM_SCREEN[1]), pygame.HWSURFACE | pygame.SRCALPHA),
+                                              surf=pygame.Surface((60, DIM_SCREEN[1]),
+                                                                  pygame.HWSURFACE | pygame.SRCALPHA),
                                               dim=(DIM_SCREEN[0] - 60, 0, 60, DIM_SCREEN[1]),
                                               width=0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=
             self.gui['button_left'] = Button(color_inactive=COLOR_ALPHA_LAVENDER,
                                              surf=pygame.Surface((60, DIM_SCREEN[1]),
-                                                            pygame.HWSURFACE | pygame.SRCALPHA),
+                                                                 pygame.HWSURFACE | pygame.SRCALPHA),
                                              dim=(0, 0, 60, DIM_SCREEN[1]),
                                              width=0)  # (COLOR_GRAY_19, (150, 450, 100, 50), width=1)
         elif self.gui_mainstreet_iter == 0:
@@ -480,13 +487,14 @@ class Environment:
         self.gui['button_tracker'] = Button(color_inactive=COLOR_BLACK,
                                             surf=pygame.Surface((80, 80), pygame.HWSURFACE),
                                             dim=(int(DIM_SCREEN[0] / 2) - 80, int(DIM_SCREEN[1] / 2), 80,
-                                             int(DIM_SCREEN[1] / 2) + 80),
+                                                 int(DIM_SCREEN[1] / 2) + 80),
                                             width=0)  # (left top width, left top height, right bottom width, right bottom height)
         if self.classTrackingTime:
             thirtyminsbefore = self.classTrackingTime - datetime.timedelta(minutes=30)
             here = False
             for bus in self.buses:
-                if bus['api_data']['lat'] == 44.6116083 and bus['api_data']['lon'] == -73.1620276:  # PLACEHOLDER COORD, figure out actual ranges and directions
+                if bus['api_data']['lat'] == 44.6116083 and bus['api_data'][
+                    'lon'] == -73.1620276:  # PLACEHOLDER COORD, figure out actual ranges and directions
                     here = True
             if here and datetime.datetime.now() > thirtyminsbefore:  # TODO: determine direction and bus lat and lon
                 print("Bus is here!")
@@ -786,12 +794,14 @@ class Environment:
                         'lon': bus['Lon']
                     })
                     # }
-                    print(">     : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(bApi['minutesAgoUpdated']))
+                    print(">     : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(
+                        bApi['minutesAgoUpdated']))
                 elif isNewBus:
                     #  update bus's model with new lat, lon
                     bApi['lat'] = bus['Lat']
                     bApi['lon'] = bus['Lon']
-                    print(">New! : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(bApi['minutesAgoUpdated']))
+                    print(">New! : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(
+                        bApi['minutesAgoUpdated']))
 
                     #  update view with new GM Marker for bus
                     marker = None
@@ -1003,8 +1013,75 @@ class Environment:
         eTime, event = pullCalendarClass()
         if not eTime:
             self.classTrackingStatus = event + " Not tracking."
-        self.classTrackingStatus = "\"" + event + "\" at " + eTime.strftime("%I:%M %p")
+        else:
+            self.classTrackingStatus = "\"" + event + "\" at " + eTime.strftime("%I:%M %p")
         self.classTrackingTime = eTime
 
     def setTrackingHere(self):
         self.classTrackingStatus = "Your bus is here for " + self.classTrackingStatus
+
+
+# If modifying these scopes, delete the file token.pickle.
+SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+
+
+#  Adapted from https://developers.google.com/calendar/quickstart/python
+def pullCalendarClass():
+    """Shows basic usage of the Google Calendar API.
+    Prints the start and name of the next 10 events on the user's calendar.
+    """
+    creds = None
+    # The file token.pickle stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first
+    # time.
+    if os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        # Save the credentials for the next run
+        with open('token.pickle', 'wb') as token:
+            pickle.dump(creds, token)
+
+    service = build('calendar', 'v3', credentials=creds)
+
+    # Call the Calendar API
+    now = datetime.datetime.today().isoformat() + 'Z'  # 'Z' indicates UTC time
+    tonight = datetime.datetime.combine(datetime.datetime.utcnow(),
+                                        datetime.datetime.max.time()).isoformat() + 'Z'  # 'Z' indicates UTC time
+    print('Getting upcoming classes for today')
+    calendars = service.calendarList().list().execute()  # grab all calendars
+    calID = None
+    for calendar in calendars['items']:
+        if "Class Times" in calendar['summary']:
+            calID = calendar['id']
+    if not calID:
+        print(
+            "No \'Class Times\' calendar found for user. Please designate class times with a calendar that includes \'Class Times\' in the title.")
+        return None, "No \'Class Times\' calendar found!"
+    else:
+        cal_day_result = service.events().list(calendarId=calID,
+                                               maxResults=10,  # Only retrieve one class.
+                                               timeMin=now, timeMax=tonight,
+                                               singleEvents=True,
+                                               orderBy="startTime").execute()
+
+        event = None
+        for course in cal_day_result['items']:
+            if datetime.datetime.strptime(course['start']['dateTime'][:19].strip(),
+                                          "%Y-%m-%dT%H:%M:%S") > datetime.datetime.today():
+                event = course  # Only retrieve one class from the list.
+                break
+
+        if not event:
+            print('No upcoming class found.')
+            return None, "No upcoming classes!"
+        start = event['start'].get('dateTime', event['start'].get('date'))
+        print(start[:19].strip(), event['summary'])
+        return datetime.datetime.strptime(start[:19].strip(), "%Y-%m-%dT%H:%M:%S"), event['summary']
