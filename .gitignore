@@ -3,3 +3,5 @@
 /resource/graph*
 /resource/sponsor.jpg
 /resource/movie*
+/resource/Blank.png
+*.pickle

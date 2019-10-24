@@ -489,6 +489,12 @@ class Environment:
                                             dim=(int(DIM_SCREEN[0] / 2) - 80, int(DIM_SCREEN[1] / 2), 80,
                                                  int(DIM_SCREEN[1] / 2) + 80),
                                             width=0)  # (left top width, left top height, right bottom width, right bottom height)
+        if platform.system() == "Windows":
+            self.gui['button_logger'] = Button(color_inactive=COLOR_BLACK,
+                                                surf=pygame.Surface((80, 80), pygame.HWSURFACE),
+                                                dim=(int(DIM_SCREEN[0] / 3) - 80, int(DIM_SCREEN[1] / 2), 80,
+                                                     int(DIM_SCREEN[1] / 2) + 80),
+                                                width=0)  # (left top width, left top height, right bottom width, right bottom height)
         if self.classTrackingTime:
             thirtyminsbefore = self.classTrackingTime - datetime.timedelta(minutes=30)
             here = False
@@ -496,7 +502,7 @@ class Environment:
                 if bus['api_data']['lat'] == 44.6116083 and bus['api_data'][
                     'lon'] == -73.1620276:  # PLACEHOLDER COORD, figure out actual ranges and directions
                     here = True
-            if here and datetime.datetime.now() > thirtyminsbefore:  # TODO: determine direction and bus lat and lon
+            if datetime.datetime.now() > thirtyminsbefore:  #and here:  # TODO: determine direction and bus lat and lon
                 print("Bus is here!")
                 self.setTrackingHere()
                 # TODO: Play sound
@@ -506,12 +512,15 @@ class Environment:
                 self.classTrackingTime = None
         for element in self.gui.items():
             element[1].active(self.mouse)
-            if element[1].state and not self.gui_tracking:  # if clicked
+            if element[1].state and not self.gui_tracking and not self.buttonDelay:  # if clicked
                 if element[0] == "button_tracker":
                     self.gui_tracking = True
                     self.setTrackingName()
+                if element[0] == "button_logger":
+                    os.system("C:/Users/super/Documents/GitHub/Sacknet.KinectFacialRecognition/Sacknet.KinectFacialRecognitionLogger/bin/Debug/Sacknet.KinectFacialRecognitionDemo.exe")
+                self.reset_buttondelay()
         text__status = FONT_CLASS.render(self.classTrackingStatus, True, COLOR_BLACK)
-        screen.blit(text__status, ((DIM_SCREEN[0] - text__status.get_size()[0]) - 2, int(DIM_SCREEN[1] / 3)))
+        screen.blit(text__status, (int((DIM_SCREEN[0] / 2) - int(text__status.get_size()[0] / 2)) - 2, int(DIM_SCREEN[1] / 3)))
 
     def surf_plot(self):
         pass
@@ -780,8 +789,8 @@ class Environment:
                 if latChange > .0001 or lonChange > .0001:
                     hasMovedSinceLastUpdate = True
 
-            if bApi['minutesAgoUpdated'] < 5000:
-                print("      : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(bApi['minutesAgoUpdated']))
+            # if bApi['minutesAgoUpdated'] < 5000:
+            #     print("      : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(bApi['minutesAgoUpdated']))
 
             #  If bus has been active within the last 30 minutes, then display it on the map.  In order for a bus to show up, it needs
             #  to be broadcasting its location and not be still for 30 or more minutes.
