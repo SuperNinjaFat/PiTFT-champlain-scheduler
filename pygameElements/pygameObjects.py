@@ -7,6 +7,7 @@ import matplotlib.pyplot
 import matplotlib.backends.backend_agg as agg
 import os
 import os.path
+import subprocess
 import datetime
 import time
 import socket
@@ -56,6 +57,8 @@ PATH_IMAGE_BURLINGTON_RIGHT = os.path.join(os.path.join(DIR_BASE, 'resource'), '
 PATH_IMAGE_SPONSOR = os.path.join(os.path.join(DIR_BASE, 'resource'), 'sponsor.jpg')
 PATH_ICON_SLIDESHOW = os.path.join(os.path.join(DIR_BASE, 'resource'), 'mode_slideshow.png')
 PATH_ICON_MANA = os.path.join(os.path.join(DIR_BASE, 'resource'), 'Mana.png')
+PATH_KINECT_LOGGER = os.path.join(DIR_BASE, *"kinectElements/Sacknet.KinectFacialRecognitionLogger/bin/Release/Sacknet.KinectFacialRecognitionLogger.exe".split("/"))
+PATH_KINECT_SCANNER = os.path.join(DIR_BASE, *"kinectElements/Sacknet.KinectFacialRecognitionScanner/bin/Release/Sacknet.KinectFacialRecognitionScanner.exe".split("/"))
 
 # Tracking Status
 TRACKING_DEFAULT = "Not tracking for next class."
@@ -124,10 +127,12 @@ screen = pygame.display.set_mode(DIM_SCREEN)
 
 # colors
 COLOR_BLACK = 0, 0, 0
+COLOR_BLUE = 52, 113, 235
 COLOR_WHITE = 255, 255, 255
 COLOR_GRAY_19 = 31, 31, 31
 COLOR_GRAY_21 = 54, 54, 54
 COLOR_GRAY_41 = 105, 105, 105
+COLOR_GREEN = 158, 235, 52
 COLOR_ORANGE = 251, 126, 20
 COLOR_LAVENDER = 230, 230, 250
 COLOR_ALPHA_WHITE = 255, 255, 255, 70  # 128
@@ -490,9 +495,14 @@ class Environment:
                                                  int(DIM_SCREEN[1] / 2) + 80),
                                             width=0)  # (left top width, left top height, right bottom width, right bottom height)
         if platform.system() == "Windows":
-            self.gui['button_logger'] = Button(color_inactive=COLOR_BLACK,
+            self.gui['button_logger'] = Button(color_inactive=COLOR_BLUE,
                                                 surf=pygame.Surface((80, 80), pygame.HWSURFACE),
-                                                dim=(int(DIM_SCREEN[0] / 3) - 80, int(DIM_SCREEN[1] / 2), 80,
+                                                dim=(int(DIM_SCREEN[0] / 4) - 80, int(DIM_SCREEN[1] / 2), 80,
+                                                     int(DIM_SCREEN[1] / 2) + 80),
+                                                width=0)  # (left top width, left top height, right bottom width, right bottom height)
+            self.gui['button_scanner'] = Button(color_inactive=COLOR_GREEN,
+                                                surf=pygame.Surface((80, 80), pygame.HWSURFACE),
+                                                dim=(int(DIM_SCREEN[0] * 0.75) - 80, int(DIM_SCREEN[1] / 2), 80,
                                                      int(DIM_SCREEN[1] / 2) + 80),
                                                 width=0)  # (left top width, left top height, right bottom width, right bottom height)
         if self.classTrackingTime:
@@ -517,7 +527,13 @@ class Environment:
                     self.gui_tracking = True
                     self.setTrackingName()
                 if element[0] == "button_logger":
-                    os.system("C:/Users/super/Documents/GitHub/Sacknet.KinectFacialRecognition/Sacknet.KinectFacialRecognitionLogger/bin/Debug/Sacknet.KinectFacialRecognitionDemo.exe")
+                    kinectProcess_logger = subprocess.Popen([PATH_KINECT_LOGGER], stdout=subprocess.PIPE)
+                    print("Logger: " + str(kinectProcess_logger.communicate()[0]))
+                if element[0] == "button_scanner":
+                    kinectProcess_scanner = subprocess.Popen([PATH_KINECT_SCANNER], stdout=subprocess.PIPE)
+                    print("Scanner: " + str(kinectProcess_scanner.communicate()[0]))
+                    #TODO: Implement if-statement here so that it takes the outputted username, sets the profile to it,
+                    #TODO: and then starts tracking the bus for the user.
                 self.reset_buttondelay()
         text__status = FONT_CLASS.render(self.classTrackingStatus, True, COLOR_BLACK)
         screen.blit(text__status, (int((DIM_SCREEN[0] / 2) - int(text__status.get_size()[0] / 2)) - 2, int(DIM_SCREEN[1] / 3)))
@@ -526,46 +542,49 @@ class Environment:
         pass
 
     def graph_temp(self):
-        for series in self.data_temperature_water:  # Create list of date-flow values
-            dates = [r[0] for r in series.data]
-            flow = [r[1] for r in series.data]
-        # render matplotgraph to bitmap
-        fig = matplotlib.pyplot.figure(figsize=[DIM_SCREEN[0] * (0.02), DIM_SCREEN[1] * (0.02)],  # 6.4, 4.8],  # Inches
-                                       dpi=50,  # 100 dots per inch, so the resulting buffer is 400x400 pixels
-                                       )
-        ax = fig.gca()
-        # Convert Celsius to Fahrenheit
-        for i, cel in enumerate(flow):
-            flow[i] = (cel * (9 / 5)) + 32
-        # Format dates
-        for i, day in enumerate(dates):
-            dates[i] = '{:%b-%d\n(%a)}'.format(datetime.datetime.strptime(str(dates[i]), '%Y-%m-%d %H:%M:%S'))
-        ax.grid(True)
-        ax.set_ylim(50, 70)
-        ax.plot(dates, flow)
-        # print(flow)
-        # print(dates)
-        # Source name
-        # fig.text(0.02, 0.5, series.variable_name, fontsize=10, rotation='vertical', verticalalignment='center')
-        fig.text(0.02, 0.5, 'Water Temperature (\N{DEGREE SIGN}F)', fontsize=10, rotation='vertical',
-                 verticalalignment='center')
-        fig.text(0.5, 0.9, series.site_name, fontsize=18, horizontalalignment='center')
-        fig.text(0.84, 0.81, str(round(flow[-1])) + '\N{DEGREE SIGN}F', fontsize=25,
-                 bbox=dict(boxstyle="round", pad=0.1, fc='#ee8d18', ec="#a05d0c", lw=2))
-        # TODO: better annotation:
-        # https://matplotlib.org/users/annotations.html#plotting-guide-annotation
-        # Draw raw data
-        canvas = agg.FigureCanvasAgg(fig)
-        canvas.draw()
-        renderer = canvas.get_renderer()
-        # size = canvas.get_width_height()
-        raw_data = renderer.tostring_rgb()
+        if self.data_temperature_water:
+            for series in self.data_temperature_water:  # Create list of date-flow values
+                dates = [r[0] for r in series.data]
+                flow = [r[1] for r in series.data]
+            # render matplotgraph to bitmap
+            fig = matplotlib.pyplot.figure(figsize=[DIM_SCREEN[0] * (0.02), DIM_SCREEN[1] * (0.02)],  # 6.4, 4.8],  # Inches
+                                           dpi=50,  # 100 dots per inch, so the resulting buffer is 400x400 pixels
+                                           )
+            ax = fig.gca()
+            # Convert Celsius to Fahrenheit
+            for i, cel in enumerate(flow):
+                flow[i] = (cel * (9 / 5)) + 32
+            # Format dates
+            for i, day in enumerate(dates):
+                dates[i] = '{:%b-%d\n(%a)}'.format(datetime.datetime.strptime(str(dates[i]), '%Y-%m-%d %H:%M:%S'))
+            ax.grid(True)
+            ax.set_ylim(50, 70)
+            ax.plot(dates, flow)
+            # print(flow)
+            # print(dates)
+            # Source name
+            # fig.text(0.02, 0.5, series.variable_name, fontsize=10, rotation='vertical', verticalalignment='center')
+            fig.text(0.02, 0.5, 'Water Temperature (\N{DEGREE SIGN}F)', fontsize=10, rotation='vertical',
+                     verticalalignment='center')
+            fig.text(0.5, 0.9, series.site_name, fontsize=18, horizontalalignment='center')
+            fig.text(0.84, 0.81, str(round(flow[-1])) + '\N{DEGREE SIGN}F', fontsize=25,
+                     bbox=dict(boxstyle="round", pad=0.1, fc='#ee8d18', ec="#a05d0c", lw=2))
+            # TODO: better annotation:
+            # https://matplotlib.org/users/annotations.html#plotting-guide-annotation
+            # Draw raw data
+            canvas = agg.FigureCanvasAgg(fig)
+            canvas.draw()
+            renderer = canvas.get_renderer()
+            # size = canvas.get_width_height()
+            raw_data = renderer.tostring_rgb()
 
-        # close figure
-        matplotlib.pyplot.close(fig)
-        # Save surface image
-        pygame.image.save(pygame.image.fromstring(raw_data, DIM_SCREEN, "RGB"),
-                          os.path.join(os.path.join(DIR_BASE, 'resource'), 'graph_temp_lake.png'))
+            # close figure
+            matplotlib.pyplot.close(fig)
+            # Save surface image
+            pygame.image.save(pygame.image.fromstring(raw_data, DIM_SCREEN, "RGB"),
+                              os.path.join(os.path.join(DIR_BASE, 'resource'), 'graph_temp_lake.png'))
+        else:
+            pygame.image.save(pygame.image.load(PATH_IMAGE_OFFLINE), os.path.join(os.path.join(DIR_BASE, 'resource'), 'graph_temp_lake.png'))
 
     def pullData(self):  # TODO: Account for an error return
         # Download lake temperature graph data
@@ -790,7 +809,7 @@ class Environment:
                     hasMovedSinceLastUpdate = True
 
             # if bApi['minutesAgoUpdated'] < 5000:
-            #     print("      : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(bApi['minutesAgoUpdated']))
+            #     print("      : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(bApi['minutesAgoUpdated']) + " direction: " + bus['Direction'])
 
             #  If bus has been active within the last 30 minutes, then display it on the map.  In order for a bus to show up, it needs
             #  to be broadcasting its location and not be still for 30 or more minutes.
@@ -804,13 +823,13 @@ class Environment:
                     })
                     # }
                     print(">     : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(
-                        bApi['minutesAgoUpdated']))
+                        bApi['minutesAgoUpdated']) + " direction: " + bus['Direction'])
                 elif isNewBus:
                     #  update bus's model with new lat, lon
                     bApi['lat'] = bus['Lat']
                     bApi['lon'] = bus['Lon']
                     print(">New! : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(
-                        bApi['minutesAgoUpdated']))
+                        bApi['minutesAgoUpdated']) + " direction: " + bus['Direction'])
 
                     #  update view with new GM Marker for bus
                     marker = None

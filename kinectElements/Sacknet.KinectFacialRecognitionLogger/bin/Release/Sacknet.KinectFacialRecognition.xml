@@ -1,0 +1,464 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Sacknet.KinectFacialRecognition</name>
+    </assembly>
+    <members>
+        <member name="T:Sacknet.KinectFacialRecognition.AllFramesReadyFrameSource">
+            <summary>
+            Frame source that ties into the Kinect AllFramesReady event
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.AllFramesReadyFrameSource.#ctor(Microsoft.Kinect.KinectSensor)">
+            <summary>
+            Initializes a new instance of the AllFramesReadyFrameSource class
+            </summary>
+        </member>
+        <member name="E:Sacknet.KinectFacialRecognition.AllFramesReadyFrameSource.FrameDataUpdated">
+            <summary>
+            Raised when a new frame of data is available
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.AllFramesReadyFrameSource.Dispose">
+            <summary>
+            Disposes the object
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.AllFramesReadyFrameSource.Sensor_AllFramesReady(System.Object,Microsoft.Kinect.AllFramesReadyEventArgs)">
+            <summary>
+            Handles the Kinect AllFramesReady event
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.FacialRecognitionProcessor">
+            <summary>
+            Performs facial recognition
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.FacialRecognitionProcessor.#ctor">
+            <summary>
+            Initializes a new instance of the FacialRecognitionProcessor class without any trained faces
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.FacialRecognitionProcessor.#ctor(System.Collections.Generic.IEnumerable{Sacknet.KinectFacialRecognition.TargetFace})">
+            <summary>
+            Initializes a new instance of the FacialRecognitionProcessor class
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.FacialRecognitionProcessor.#ctor(System.Collections.Generic.IEnumerable{Sacknet.KinectFacialRecognition.TargetFace},System.Double)">
+            <summary>
+            Initializes a new instance of the FacialRecognitionProcessor class
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.FacialRecognitionProcessor.Recognizer">
+            <summary>
+            Gets the facial recognition engine
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.FacialRecognitionProcessor.Process(Sacknet.KinectFacialRecognition.RecognitionResult,Sacknet.KinectFacialRecognition.TrackingResults)">
+            <summary>
+            Attempt to find a trained face in the original bitmap
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.FloatImage">
+            <summary>
+            An "Image" consisting of floating point pixels
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.FloatImage.#ctor(System.Int32,System.Int32)">
+            <summary>
+            Initializes a new instance of the FloatImage class
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.FloatImage.Step">
+            <summary>
+            Gets the step of the image (width of the row)
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.FloatImage.Size">
+            <summary>
+            Gets the size of the image
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.FloatImage.Data">
+            <summary>
+            Gets the raw image data
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.BitmapExtensions">
+            <summary>
+            Extension methods for performing operations on bitmaps
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.BitmapExtensions.RGB">
+            <summary>
+            Little-endian Format32bppArgb is stored as BGRA
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.BitmapExtensions.MakeGrayscale(System.Drawing.Bitmap,System.Int32,System.Int32)">
+            <summary>
+            Converts a bitmap to grayscale.  Based on:
+            http://tech.pro/tutorial/660/csharp-tutorial-convert-a-color-image-to-grayscale
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.BitmapExtensions.CopyBitmapToByteArray(System.Drawing.Bitmap,System.Int32@)">
+            <summary>
+            Copies a bitmap to a byte array
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.BitmapExtensions.CopyGrayscaleBitmapToByteArray(System.Drawing.Bitmap,System.Int32@)">
+            <summary>
+            Copies a grayscale bitmap to a byte array
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.BitmapExtensions.HistogramEqualize(System.Drawing.Bitmap)">
+            <summary>
+            Histogram equalizes the input bitmap
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.BitmapExtensions.HistogramEqualizationLut(System.Byte[])">
+            <summary>
+            Gets the histogram equalization lookup table for separate R, G, B channels
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.BitmapExtensions.ImageHistogram(System.Byte[])">
+            <summary>
+            Returns an array containing histogram values for separate R, G, B channels
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.ManagedEigenObjectException">
+            <summary>
+            An exception thrown from the Managed Eigen Object Recognition code
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjectException.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the ManagedEigenObjectException class with a message
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer">
+            <summary>
+            Based on the Emgu CV EigenObjectRecognizer, but converted to use fully managed objects.
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.#ctor(System.Collections.Generic.IEnumerable{Sacknet.KinectFacialRecognition.TargetFace})">
+            <summary>
+            Initializes a new instance of the <see cref="T:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer"/> class.
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.#ctor(System.Collections.Generic.IEnumerable{Sacknet.KinectFacialRecognition.TargetFace},System.Double)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer"/> class.
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.#ctor(System.Collections.Generic.IEnumerable{Sacknet.KinectFacialRecognition.TargetFace},System.Double,System.Int32,System.Double)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer"/> class.
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.EigenImages">
+            <summary>
+            Gets or sets the eigen vectors that form the eigen space
+            </summary>
+            <remarks>The set method is primary used for deserialization, do not attemps to set it unless you know what you are doing</remarks>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.Labels">
+            <summary>
+            Gets or sets the labels for the corresponding training image
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.EigenDistanceThreshold">
+            <summary>
+            Gets or sets the eigen distance threshold.
+            The smaller the number, the more likely an examined image will be treated as unrecognized object. 
+            Set it to a huge number (e.g. 5000) and the recognizer will always treated the examined image as one of the known object. 
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.AverageImage">
+            <summary>
+            Gets or sets the average Image. 
+            </summary>
+            <remarks>The set method is primary used for deserialization, do not attemps to set it unless you know what you are doing</remarks>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.EigenValues">
+            <summary>
+            Gets or sets the eigen values of each of the training image
+            </summary>
+            <remarks>The set method is primary used for deserialization, do not attemps to set it unless you know what you are doing</remarks>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.CalcEigenObjects(System.Drawing.Bitmap[],System.Int32,System.Double,Sacknet.KinectFacialRecognition.FloatImage[]@,Sacknet.KinectFacialRecognition.FloatImage@)">
+            <summary>
+            Caculate the eigen images for the specific traning image
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.EigenDecomposite(System.Drawing.Bitmap,Sacknet.KinectFacialRecognition.FloatImage[],Sacknet.KinectFacialRecognition.FloatImage)">
+            <summary>
+            Decompose the image as eigen values, using the specific eigen vectors
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.GetEigenDistances(System.Drawing.Bitmap)">
+            <summary>
+            Get the Euclidean eigen-distance between <paramref name="image"/> and every other image in the database
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.FindMostSimilarObject(System.Drawing.Bitmap,System.Int32@,System.Single@,System.String@)">
+            <summary>
+            Given the <paramref name="image"/> to be examined, find in the database the most similar object, return the index and the eigen distance
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjectRecognizer.Recognize(System.Drawing.Bitmap,System.Single@)">
+            <summary>
+            Try to recognize the image and return its label
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.ManagedEigenObjects">
+            <summary>
+            Port of a subset of the OpenCV EigenObjects functions to managed C# so we don't need to
+            use Emgu CV and bring in the entire unmanaged library.
+            (Very few comments follow as I'm mostly blindly translating..)
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjects.CalcEigenObjects(System.Drawing.Bitmap[],System.Int32,System.Double,Sacknet.KinectFacialRecognition.FloatImage[],System.Single[],Sacknet.KinectFacialRecognition.FloatImage)">
+            <summary>
+            Calculates eigen objects
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjects.EigenDecomposite(System.Drawing.Bitmap,Sacknet.KinectFacialRecognition.FloatImage[],Sacknet.KinectFacialRecognition.FloatImage)">
+            <summary>
+            Calculates eigen decomposite
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjects.EigenDecomposite(System.Byte[],System.Int32,System.Int32,System.Single[][],System.Int32,System.Single[],System.Int32,System.Drawing.Size,System.Single[])">
+            <summary>
+            Helper function to calculate eigen decomposite
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjects.CalcDecompCoeff(System.Byte[],System.Int32,System.Single[],System.Int32,System.Single[],System.Int32,System.Drawing.Size)">
+            <summary>
+            Helper function to calculate the decomp coefficient
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjects.CalcEigenObjects(System.Int32,System.Byte[][],System.Int32,System.Single[][],System.Int32,System.Drawing.Size,System.Int32,System.Double,System.Single[],System.Int32,System.Single[])">
+            <summary>
+            Helper function to calculate eigen objects
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjects.CalcCovarMatrixEx(System.Int32,System.Byte[][],System.Int32,System.Single[],System.Int32,System.Drawing.Size,System.Single[])">
+            <summary>
+            Calculates covariance matrix
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.ManagedEigenObjects.JacobiEigens(System.Single[],System.Single[],System.Single[],System.Int32,System.Single)">
+            <summary>
+            Calculates jacobi eigens
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.RecognitionResult">
+            <summary>
+            Holds the results of facial recognition
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.RecognitionResult.OriginalBitmap">
+            <summary>
+            Gets or sets the original color frame
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.RecognitionResult.ProcessedBitmap">
+            <summary>
+            Gets or sets the processed color frame (with a boundary drawn around the face)
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.RecognitionResult.Faces">
+            <summary>
+            Gets or sets a list of faces detected in the image
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.RecognitionResult.Dispose">
+            <summary>
+            Disposes the object
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.RecognitionResult.Face">
+            <summary>
+            A detected face - if recognized, key will not be null.
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.RecognitionResult.Face.TrackingResults">
+            <summary>
+            Gets or sets the results from tracking
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.RecognitionResult.Face.GrayFace">
+            <summary>
+            Gets or sets the grayscale, 100x100 image of the face to use for matching
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.RecognitionResult.Face.Key">
+            <summary>
+            Gets or sets the key of the recognized image (if any)
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.RecognitionResult.Face.EigenDistance">
+            <summary>
+            Gets or sets the distance away from a perfectly recognized face
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.FrameData">
+            <summary>
+            The frame data necessary to perform facial recognition
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.FrameData.#ctor(Microsoft.Kinect.ColorImageFrame,Microsoft.Kinect.DepthImageFrame,Microsoft.Kinect.Skeleton)">
+            <summary>
+            Initializes a new instance of the FrameData class
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.FrameData.ColorFrame">
+            <summary>
+            Gets or sets the color frame
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.FrameData.DepthFrame">
+            <summary>
+            Gets or sets the depth frame
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.FrameData.TrackedSkeleton">
+            <summary>
+            Gets or sets the tracked skeleton
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.IFrameSource">
+            <summary>
+            An object capable of providing frames to the facial recognition engine
+            </summary>
+        </member>
+        <member name="E:Sacknet.KinectFacialRecognition.IFrameSource.FrameDataUpdated">
+            <summary>
+            Raised when a new frame of data is available
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine">
+            <summary>
+            A facial recognition engine using the Kinect facial tracking system and principal component analysis for recognition
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.#ctor(Microsoft.Kinect.KinectSensor,Sacknet.KinectFacialRecognition.IFrameSource)">
+            <summary>
+            Initializes a new instance of the KinectFacialRecognitionEngine class
+            </summary>
+        </member>
+        <member name="E:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.RecognitionComplete">
+            <summary>
+            Raised when recognition has been completed for a frame
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.ProcessingEnabled">
+            <summary>
+            Gets or sets a value indicating whether images will be processed for facial recognition.  If false, the video stream will be passed through untouched.
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.ProcessingMutex">
+            <summary>
+            Gets a mutex that prevents the target faces from being updated during processing and vice-versa
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.Processor">
+            <summary>
+            Gets the active facial recognition processor
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.Kinect">
+            <summary>
+            Gets the active Kinect sensor
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.SetTargetFaces(System.Collections.Generic.IEnumerable{Sacknet.KinectFacialRecognition.TargetFace})">
+            <summary>
+            Loads the given target faces into the eigen object recognizer
+            </summary>
+            <param name="faces">The target faces to use for training.  Faces should be 100x100 and grayscale.</param>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.SetTargetFaces(System.Collections.Generic.IEnumerable{Sacknet.KinectFacialRecognition.TargetFace},System.Double)">
+            <summary>
+            Loads the given target faces into the eigen object recognizer
+            </summary>
+            <param name="faces">The target faces to use for training.  Faces should be 100x100 and grayscale.</param>
+            <param name="threshold">Eigen distance threshold for a match.  1500-2000 is a reasonable value.  0 will never match.</param>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.Dispose">
+            <summary>
+            Disposes the object
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.FrameSource_FrameDataUpdated(System.Object,Sacknet.KinectFacialRecognition.FrameData)">
+            <summary>
+            Performs recognition on a new frame of data
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.RecognizerWorker_DoWork(System.Object,System.ComponentModel.DoWorkEventArgs)">
+            <summary>
+            Worker thread for recognition processing
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.RecognizerWorker_RunWorkerCompleted(System.Object,System.ComponentModel.RunWorkerCompletedEventArgs)">
+            <summary>
+            Work complete - brings the results back to the UI thread and raises the complete event
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.KinectFacialRecognitionEngine.ImageToBitmap(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            Transforms a Kinect ColorImageFrame to a bitmap (why is this so hard?)
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.TargetFace">
+            <summary>
+            Describes a target face for facial recognition
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.TargetFace.Key">
+            <summary>
+            Gets or sets the key returned when this face is found
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.TargetFace.Image">
+            <summary>
+            Gets or sets the grayscale, 100x100 target image
+            </summary>
+        </member>
+        <member name="T:Sacknet.KinectFacialRecognition.TrackingResults">
+            <summary>
+            Results from face tracking
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.TrackingResults.#ctor">
+            <summary>
+            Initializes a new instance of the TrackingResults class
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.TrackingResults.#ctor(Microsoft.Kinect.Toolkit.FaceTracking.EnumIndexableCollection{Microsoft.Kinect.Toolkit.FaceTracking.FeaturePoint,Microsoft.Kinect.Toolkit.FaceTracking.PointF})">
+            <summary>
+            Initializes a new instance of the TrackingResults class from a set of Kinect face points
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.TrackingResults.FacePoints">
+            <summary>
+            Gets or sets the 3D points of the face
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.TrackingResults.FaceRect">
+            <summary>
+            Gets or sets the face bounding box
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.TrackingResults.FaceBoundaryPoints(Microsoft.Kinect.Toolkit.FaceTracking.EnumIndexableCollection{Microsoft.Kinect.Toolkit.FaceTracking.FeaturePoint,Microsoft.Kinect.Toolkit.FaceTracking.PointF})">
+            <summary>
+            Returns only the bounding points for the face (in order so you can draw a loop)
+            </summary>
+        </member>
+        <member name="M:Sacknet.KinectFacialRecognition.TrackingResults.TranslatePoint(Microsoft.Kinect.Toolkit.FaceTracking.PointF)">
+            <summary>
+            Translates between kinect and drawing points
+            </summary>
+        </member>
+    </members>
+</doc>
