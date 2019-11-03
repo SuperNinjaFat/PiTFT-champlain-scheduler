@@ -129,6 +129,11 @@ namespace Sacknet.KinectFacialRecognitionScanner
                     if (face.Key.StartsWith("Paul"))
                     {
                         System.Diagnostics.Trace.WriteLine("Paul");
+                        StreamWriter output = new StreamWriter(System.Console.OpenStandardOutput());
+                        output.AutoFlush = true;
+                        Console.SetOut(output);
+                        output.Write("Paul");
+                        output.Close();
                         System.Windows.Application.Current.Shutdown();
                         return;
                     }

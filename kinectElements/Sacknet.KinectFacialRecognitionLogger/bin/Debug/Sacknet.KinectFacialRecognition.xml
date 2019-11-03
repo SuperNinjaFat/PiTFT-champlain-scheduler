@@ -425,6 +425,16 @@
             Gets or sets the grayscale, 100x100 target image
             </summary>
         </member>
+        <member name="T:Sacknet.KinectFacialRecognition.OutputUser">
+            <summary>
+            Describes a user for outputting a profile after facial recognition
+            </summary>
+        </member>
+        <member name="P:Sacknet.KinectFacialRecognition.OutputUser.Name">
+            <summary>
+            Gets or sets the name of a user
+            </summary>
+        </member>
         <member name="T:Sacknet.KinectFacialRecognition.TrackingResults">
             <summary>
             Results from face tracking

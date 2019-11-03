@@ -6,9 +6,6 @@
   <project key="1335702177">
     <configuration>DEBUG;TRACE</configuration>
   </project>
-  <project key="-1231615437">
-    <configuration>TRACE</configuration>
-  </project>
   <sourcecode name="AssemblyInfo.cs" parser="StyleCop.CSharp.CsParser">
     <timestamps>
       <styleCop>2014/01/02 12:07:04.000</styleCop>
@@ -162,7 +159,7 @@
     <timestamps>
       <styleCop>2014/01/02 12:07:04.000</styleCop>
       <settingsFile>2014/01/02 12:07:04.000</settingsFile>
-      <sourceFile>2019/10/24 21:14:57.667</sourceFile>
+      <sourceFile>2019/10/29 16:43:40.988</sourceFile>
       <parser>2014/01/02 12:07:04.000</parser>
       <StyleCop.CSharp.DocumentationRules>2014/01/02 12:07:04.000</StyleCop.CSharp.DocumentationRules>
       <StyleCop.CSharp.DocumentationRules.FilesHashCode>768307644</StyleCop.CSharp.DocumentationRules.FilesHashCode>
@@ -429,4 +426,7 @@
     </timestamps>
     <violations />
   </sourcecode>
+  <project key="-1231615437">
+    <configuration>DEBUG;TRACE</configuration>
+  </project>
 </stylecopresultscache>

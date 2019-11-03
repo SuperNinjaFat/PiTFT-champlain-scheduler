@@ -1,5 +1,23 @@
-# PiTFT-lakechamplain-temp
-Gets the temperature of the lake in Lake Champlain and displays it to a raspberry pi screen.
+# PiTFT-champlain-scheduler
+A pycharm information and utility app for common room computers.
+
+Supports a variety of pages containing information useful to students attending Champlain College:
+- Mainstreet Landing Movies
+- Graph of Lake Temperature
+- Live Burlington Pictures Feed
+
+Planned Pages:
+- User Profiles/Preferences
+  - Enables/Disables pages
+- Shuttle Tracking in relation to class times
+  - Requires Profile Sign-in with google calendar
+- Display of Shuttle Locations
+- Washer/Drier status
+- Weather and temperature
+
+
+Initially built for raspberry pi.
+Lake temperature
 
 # Required Libraries:
 

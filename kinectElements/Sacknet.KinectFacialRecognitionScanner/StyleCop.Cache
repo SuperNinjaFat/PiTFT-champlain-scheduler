@@ -162,7 +162,7 @@
     <timestamps>
       <styleCop>2014/01/02 12:07:04.000</styleCop>
       <settingsFile>2014/01/02 12:07:04.000</settingsFile>
-      <sourceFile>2019/10/24 22:37:16.821</sourceFile>
+      <sourceFile>2019/10/29 16:58:15.049</sourceFile>
       <parser>2014/01/02 12:07:04.000</parser>
       <StyleCop.CSharp.DocumentationRules>2014/01/02 12:07:04.000</StyleCop.CSharp.DocumentationRules>
       <StyleCop.CSharp.DocumentationRules.FilesHashCode>768307644</StyleCop.CSharp.DocumentationRules.FilesHashCode>
@@ -257,7 +257,7 @@
       </violation>
       <violation namespace="StyleCop.CSharp.LayoutRules" rule="CodeMustNotContainMultipleBlankLinesInARow" ruleCheckId="SA1507">
         <context>The code must not contain multiple blank lines in a row.</context>
-        <line>141</line>
+        <line>146</line>
         <warning>False</warning>
       </violation>
       <violation namespace="StyleCop.CSharp.DocumentationRules" rule="ElementsMustBeDocumented" ruleCheckId="SA1600">
@@ -337,12 +337,12 @@
       </violation>
       <violation namespace="StyleCop.CSharp.DocumentationRules" rule="ElementsMustBeDocumented" ruleCheckId="SA1600">
         <context>The field must have a documentation header.</context>
-        <line>147</line>
+        <line>152</line>
         <warning>False</warning>
       </violation>
       <violation namespace="StyleCop.CSharp.LayoutRules" rule="CurlyBracketsMustNotBeOmitted" ruleCheckId="SA1503">
         <context>The body of the if statement must be wrapped in opening and closing curly brackets.</context>
-        <line>157</line>
+        <line>162</line>
         <warning>False</warning>
       </violation>
     </violations>

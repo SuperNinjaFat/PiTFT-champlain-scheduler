@@ -7,6 +7,7 @@ import matplotlib.pyplot
 import matplotlib.backends.backend_agg as agg
 import os
 import os.path
+import fileinput
 import subprocess
 import datetime
 import time
@@ -24,6 +25,9 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
 # from html.parser import HTMLParser
+
+# If modifying these scopes, delete the file token.pickle.
+SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
 DIST = ""
 
@@ -55,13 +59,18 @@ PATH_IMAGE_GRAPH_TEMPERATURE = os.path.join(os.path.join(DIR_BASE, 'resource'), 
 PATH_IMAGE_BURLINGTON_LEFT = os.path.join(os.path.join(DIR_BASE, 'resource'), 'burlington_left.jpg')
 PATH_IMAGE_BURLINGTON_RIGHT = os.path.join(os.path.join(DIR_BASE, 'resource'), 'burlington_right.jpg')
 PATH_IMAGE_SPONSOR = os.path.join(os.path.join(DIR_BASE, 'resource'), 'sponsor.jpg')
+PATH_IMAGE_MOVIES = os.path.join(os.path.join(DIR_BASE, 'resource'), 'msl-movies.png')
 PATH_ICON_SLIDESHOW = os.path.join(os.path.join(DIR_BASE, 'resource'), 'mode_slideshow.png')
 PATH_ICON_MANA = os.path.join(os.path.join(DIR_BASE, 'resource'), 'Mana.png')
+PATH_ICON_MAP = os.path.join(os.path.join(DIR_BASE, 'resource'), 'Map_0.png')
 PATH_KINECT_LOGGER = os.path.join(DIR_BASE, *"kinectElements/Sacknet.KinectFacialRecognitionLogger/bin/Release/Sacknet.KinectFacialRecognitionLogger.exe".split("/"))
 PATH_KINECT_SCANNER = os.path.join(DIR_BASE, *"kinectElements/Sacknet.KinectFacialRecognitionScanner/bin/Release/Sacknet.KinectFacialRecognitionScanner.exe".split("/"))
 
 # Tracking Status
 TRACKING_DEFAULT = "Not tracking for next class."
+
+# Username
+USER_DEFAULT = "Default"
 
 # PiTFT Button Map
 button_map = (23, 22, 27, 18)
@@ -108,7 +117,7 @@ if platform.system() == "Windows":
     FONT_FALLOUT = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'r_fallouty.ttf'), 30)
     FONT_BM = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 10)
     FONT_MOVIE_TITLE = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 40)
-    FONT_MOVIE_DESC = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'r_fallouty.ttf'), 30)
+    FONT_MOVIE_DESC = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 20)
     FONT_CLASS = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/', 'din1451alt.ttf'), 40)
 elif platform.system() == "Linux":
     pygame.mouse.set_visible(False)
@@ -116,7 +125,8 @@ elif platform.system() == "Linux":
     FONT_FALLOUT = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
     FONT_BM = pygame.font.Font('resource/fonts/din1451alt.ttf', 10)
     FONT_MOVIE_TITLE = pygame.font.Font('resource/fonts/din1451alt.ttf', 40)
-    FONT_MOVIE_DESC = pygame.font.Font('resource/fonts/r_fallouty.ttf', 30)
+    FONT_MOVIE_DESC = pygame.font.Font('resource/fonts/din1451alt.ttf', 20)
+    FONT_CLASS = pygame.font.Font(os.path.join(DIR_BASE, 'resource/fonts/din1451alt.ttf'), 40)
 else:
     print("default fonts")
     FONT_FALLOUT = pygame.font.SysFont(None, 30)
@@ -145,6 +155,7 @@ URL_MAINSTREET = "https://www.mainstreetlanding.com"
 # Icon Constants
 ICON_SLIDESHOW = 0  # Slideshow Icon
 ICON_TEST = 1  # Slideshow Icon
+ICON_MAP = 2  # Slideshow Icon
 
 # Content switching
 CONTENT_TEMPERATURE = {"number": 0,
@@ -157,6 +168,8 @@ CONTENT_SHUTTLE = {"number": 3,
                    "name": "Shuttle Map"}
 CONTENT_CLASS = {"number": 4,
                  "name": "Class Shuttle Alert"}
+CONTENT_PROFILE = {"number": 5,
+                 "name": "Profile Login"}
 
 
 class Card:
@@ -205,6 +218,12 @@ class Button:
 #         self.background = background
 #         self.buttons = buttons
 
+class Profile:
+    def __init__(self, name=USER_DEFAULT, calendars=["Class Times"], pages=[]):
+        self.name = name
+        self.calendars = calendars
+        self.pages = pages
+
 
 class Environment:
     def __init__(self):
@@ -220,6 +239,8 @@ class Environment:
         self.mouse = {"position": (0, 0),
                       "click": False}
         self.movies = []
+        self.profiles = []
+        self.user = Profile()  # Default profile name
         self.gui = {}
         self.gui_picture_toggle = True
         self.gui_mainstreet_iter = 0
@@ -228,42 +249,43 @@ class Environment:
         self.sponsor = Card
         # Define content list TODO: Settings - Save enabled/disabled content
         self.contentList = [
-            # [CONTENT_TEMPERATURE, PATH_IMAGE_GRAPH_TEMPERATURE, lambda func: self.surf_plot()],
-            # [CONTENT_PICTURE, PATH_IMAGE_BURLINGTON_LEFT, lambda func: self.surf_picture()],
+            [CONTENT_TEMPERATURE, PATH_IMAGE_GRAPH_TEMPERATURE, lambda func: self.surf_plot()],
+            [CONTENT_PICTURE, PATH_IMAGE_BURLINGTON_LEFT, lambda func: self.surf_picture()],
             [CONTENT_MAINSTREET, PATH_IMAGE_BLANK, lambda func: self.surf_mainstreet()],
-            # [CONTENT_SHUTTLE, PATH_IMAGE_STARTUP, lambda func: self.surf_shuttle()],
+            [CONTENT_SHUTTLE, PATH_IMAGE_STARTUP, lambda func: self.surf_shuttle()],
             [CONTENT_CLASS, PATH_IMAGE_BLANK, lambda func: self.surf_class()],
+            [CONTENT_PROFILE, PATH_IMAGE_BLANK, lambda func: self.surf_profile()],
         ]
         surf = pygame.Surface(DIM_SCREEN)
         surf.convert()
         surf.fill(COLOR_WHITE)
-        pygame.image.save(surf,
-                          os.path.join(os.path.join(DIR_BASE, 'resource'), 'Blank.png'))
+        pygame.image.save(surf, os.path.join(os.path.join(DIR_BASE, 'resource'), 'Blank.png'))
         self.surf_background = pygame.transform.scale(pygame.image.load(PATH_IMAGE_BLANK),
                                                       DIM_SCREEN)  # Set surface image to offline
         self.time_text = (None, None)  # Time Buffer
-        self.slideshow = True  # slideshow toggler
+        self.slideshow = False  # slideshow toggler
         self.buttonDelay = False  # Button delay
         self.backlight = True  # Backlight is On
         self.cIndex = 0  # Start with lake temperature
 
         # Icons
-        self.icon = [pygame.transform.scale(pygame.image.load(PATH_ICON_SLIDESHOW),
-                                            DIM_ICON),  # Slideshow
-                     pygame.transform.scale(pygame.image.load(PATH_ICON_MANA), DIM_ICON)
-                     # Test
+        self.icon = [pygame.transform.scale(pygame.image.load(PATH_ICON_SLIDESHOW), DIM_ICON),  # Slideshow
+                     pygame.transform.scale(pygame.image.load(PATH_ICON_MANA), DIM_ICON),  # Test
+                     pygame.transform.scale(pygame.image.load(PATH_ICON_MAP), DIM_ICON)  # Test
                      ]
         # Pull data from internet/system
         self.pullTime()  # Set time
         self.pullData()  # Download data
         self.graph_temp()  # Graph data
         self.pullImageBurlington()  # Download Burlington images
-        html = requests.get("https://forms.champlain.edu/googlespreadsheet/find/type/shuttlemapsapi")
-        self.getMarkerInfo(html)
+        self.getMarkerInfo()
         self.pullShuttle()
+        self.pullProfiles()  # Load Profiles
+        # self.setTrackingName()  # TODO: *****************TEMPORARY*******************
+        self.setProfile(USER_DEFAULT)  # TODO: Allow an option for the last user to be re-logged in upon bootup
 
         # You have to run a set-surface function before the slides start up.
-        self.surf_background = pygame.image.load(self.contentList[self.cIndex][1])
+        self.surf_background = pygame.image.load(self.user.pages[self.cIndex][1])
         # self.surf_startup()  # Start with lake temperature
         if platform.system() == "Linux":
             # Only use the sleep function for raspberry pi
@@ -272,7 +294,7 @@ class Environment:
     def menu(self):
         crashed = False
         while not crashed:
-            content_list_enough = len(self.contentList) > 1  # larger than one
+            content_list_enough = len(self.user.pages) > 1  # larger than one
             for event in pygame.event.get():
                 # Every 8 hours, download data
                 if event.type == USEREVENT + 1:  # Every 8 hours, download new data and render images.
@@ -312,15 +334,16 @@ class Environment:
                     if platform.system() == "Linux":
                         self.reset_backlight()
                     if event.key == pygame.K_ESCAPE:
-                        pygame.quit()
-                    if event.key == pygame.K_BACKSLASH:
-                        self.toggleSlideshow()
-                    if event.key == pygame.K_LEFT and content_list_enough:
-                        self.content_iterate(True)
-                        self.reset_slideshow()
-                    if event.key == pygame.K_RIGHT and content_list_enough:
-                        self.content_iterate()
-                        self.reset_slideshow()
+                        exit()# pygame.quit()
+                    if content_list_enough:
+                        if event.key == pygame.K_BACKSLASH:
+                            self.toggleSlideshow()
+                        if event.key == pygame.K_LEFT:
+                            self.content_iterate(True)
+                            self.reset_slideshow()
+                        if event.key == pygame.K_RIGHT:
+                            self.content_iterate()
+                            self.reset_slideshow()
                     self.reset_buttondelay()
 
             self.mouse['position'] = pygame.mouse.get_pos()
@@ -333,14 +356,15 @@ class Environment:
                 if not GPIO.input(k) and not self.buttonDelay and DIST == "000e":  # platform.system() == "Linux":
                     if k == button_map[0]:
                         pygame.quit()
-                    if k == button_map[1]:
-                        self.toggleSlideshow()
-                    if k == button_map[2] and content_list_enough:
-                        self.content_iterate(True)
-                        self.reset_slideshow()
-                    if k == button_map[3] and content_list_enough:
-                        self.content_iterate()
-                        self.reset_slideshow()
+                    if content_list_enough:
+                        if k == button_map[1]:
+                            self.toggleSlideshow()
+                        if k == button_map[2]:
+                            self.content_iterate(True)
+                            self.reset_slideshow()
+                        if k == button_map[3]:
+                            self.content_iterate()
+                            self.reset_slideshow()
                     self.reset_buttondelay()  # Reset the tactile button delay
                     self.reset_backlight()  # Whenever the user presses a button, reset the backlight
             self.refresh()
@@ -363,29 +387,35 @@ class Environment:
     def content_iterate(self, prev=False):
         self.gui.clear()  # clear gui
         if prev:
-            self.cIndex = self.contentList.index(self.contentList[self.cIndex - 1])  # Iterate cIndex backwards
+            self.cIndex = self.user.pages.index(self.user.pages[self.cIndex - 1])  # Iterate cIndex backwards
         else:
-            if self.cIndex + 1 >= len(self.contentList):  # Iterate cIndex forwards
+            if self.cIndex + 1 >= len(self.user.pages):  # Iterate cIndex forwards
                 self.cIndex = 0
             else:
                 self.cIndex = self.cIndex + 1
-        print(self.contentList[self.cIndex][0]['name'])
-        self.surf_background = pygame.image.load(self.contentList[self.cIndex][1])  # set background
+        print(self.user.pages[self.cIndex][0]['name'])
+        self.surf_background = pygame.image.load(self.user.pages[self.cIndex][1])  # set background
 
     def refresh(self):
         screen.blit(self.surf_background, (0, 0))  # Background
 
-        self.contentList[self.cIndex][2](self)  # run the content function
+        self.user.pages[self.cIndex][2](self)  # run the content function
 
         # Icons Todo: make icon bar toggleable in options
         pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (DIM_SCREEN[0], 13)), 0)  # Icon bar backing
-        if self.buttonDelay:  # if the buttonDelay bool is enabled, display the icon.
-            screen.blit(self.icon[ICON_TEST], (59, 1))
         if self.slideshow:  # if the slideshow bool is enabled, display the icon.
             screen.blit(self.icon[ICON_SLIDESHOW], (44, 1))
+        if self.buttonDelay:  # if the buttonDelay bool is enabled, display the icon.
+            screen.blit(self.icon[ICON_TEST], (59, 1))
+        if self.gui_tracking:  # if tracking the next bus, bool is enabled, display the icon.
+            screen.blit(self.icon[ICON_MAP], (74, 1))
+
+        # Profile Name
+        profile__name = FONT_BM.render("User: " + self.user.name, True, COLOR_BLACK)
+        screen.blit(profile__name, ((int(DIM_SCREEN[0] / 2) - profile__name.get_size()[0]) - 2, 1))
 
         # Content Name
-        cont__name = FONT_BM.render(self.contentList[self.cIndex][0]['name'], True, COLOR_BLACK)
+        cont__name = FONT_BM.render(self.user.pages[self.cIndex][0]['name'], True, COLOR_BLACK)
         screen.blit(cont__name, ((DIM_SCREEN[0] - cont__name.get_size()[0]) - 2, 1))
 
         # Clock
@@ -426,11 +456,11 @@ class Environment:
             element[1].active(self.mouse)
             if element[1].state:  # if clicked
                 if element[0] == "button_left":
-                    self.contentList[self.cIndex][1] = PATH_IMAGE_BURLINGTON_LEFT
+                    self.user.pages[self.cIndex][1] = PATH_IMAGE_BURLINGTON_LEFT
                 elif element[0] == "button_right":
-                    self.contentList[self.cIndex][1] = PATH_IMAGE_BURLINGTON_RIGHT
+                    self.user.pages[self.cIndex][1] = PATH_IMAGE_BURLINGTON_RIGHT
                 self.gui_picture_toggle = not self.gui_picture_toggle
-        self.surf_background = pygame.image.load(self.contentList[self.cIndex][1])  # load the background anyways
+        self.surf_background = pygame.image.load(self.user.pages[self.cIndex][1])  # load the background anyways
         # TODO: Either remove self.gui or clear it in self.setContent
 
     def surf_mainstreet(self):
@@ -439,7 +469,7 @@ class Environment:
         # TODO: Make descriptions easier to read and scroll through.
 
         self.gui.clear()  # clear gui
-        self.surf_background = pygame.image.load(self.contentList[self.cIndex][1])  # load the background
+        self.surf_background = pygame.image.load(self.user.pages[self.cIndex][1])  # load the background
         if 0 < self.gui_mainstreet_iter < len(self.movies) - 1:  # if in middle of movie list
             self.gui['button_right'] = Button(color_inactive=COLOR_ALPHA_LAVENDER,
                                               surf=pygame.Surface((60, DIM_SCREEN[1]),
@@ -472,16 +502,25 @@ class Environment:
                     self.gui_mainstreet_iter = self.gui_mainstreet_iter + 1
                 self.reset_buttondelay()
 
-        movie = self.movies[self.gui_mainstreet_iter]
+        movie = self.movies[self.gui_mainstreet_iter]  # Movie Object
 
-        screen.blit(movie.img, (int((int(DIM_SCREEN[0] / 2) - int(movie.img.get_size()[0] / 2)) / 3),
-                                int(DIM_SCREEN[1] / 2) - int(movie.img.get_size()[1] / 2)))
-        text__title = FONT_MOVIE_TITLE.render(movie.title, True, COLOR_BLACK)
-        screen.blit(text__title, ((DIM_SCREEN[0] - text__title.get_size()[0]),
+        screen.blit(movie.img, (int((int(DIM_SCREEN[0] / 2) - int(movie.img.get_size()[0] / 2)) / 4),
+                                int(DIM_SCREEN[1] / 2) - int(movie.img.get_size()[1] / 2)))  # Image
+        text__title = FONT_MOVIE_TITLE.render(movie.title, True, COLOR_BLACK)  # Title
+        screen.blit(text__title, ((DIM_SCREEN[0] - text__title.get_size()[0] - 60),
                                   int((int(DIM_SCREEN[1] / 2) - int(movie.img.get_size()[1] / 2)) / 4)))
+        logo = pygame.image.load(PATH_IMAGE_MOVIES)
+        screen.blit(logo, (int((int(DIM_SCREEN[0] / 2) - int(logo.get_size()[0] / 2)) / 4),
+                           int((int(DIM_SCREEN[1] / 2) - int(logo.get_size()[1] / 2)) / 4) - text__title.get_size()[1]))  # Logo Image
 
-        text__desc = FONT_MOVIE_DESC.render(movie.desc, True, COLOR_BLACK)
-        screen.blit(text__desc, ((DIM_SCREEN[0] - text__desc.get_size()[0]) - 2, int(DIM_SCREEN[1] / 3)))
+
+        # pygame.Surface()
+        self.drawText(screen,
+                      movie.desc,
+                      COLOR_BLACK,
+                      pygame.Rect(int(DIM_SCREEN[0] / 3), int((int(DIM_SCREEN[1] / 2) - int(movie.img.get_size()[1] / 2)) / 4) + text__title.get_size()[1], int(DIM_SCREEN[0] / 2), DIM_SCREEN[1]),
+                      FONT_MOVIE_DESC
+                      )
 
     def surf_shuttle(self):  # TODO: https://shuttle.champlain.edu/
         pass
@@ -489,54 +528,60 @@ class Environment:
     def surf_class(
             self):  # TODO: Consists of a button or scanner that activates an alert for the bus before your next class.
         self.gui.clear()  # clear gui
+        text__status = FONT_CLASS.render(self.classTrackingStatus, True, COLOR_BLACK)
+        screen.blit(text__status, (int((DIM_SCREEN[0] / 2) - int(text__status.get_size()[0] / 2)) - 2, int(DIM_SCREEN[1] / 5)))
         self.gui['button_tracker'] = Button(color_inactive=COLOR_BLACK,
                                             surf=pygame.Surface((80, 80), pygame.HWSURFACE),
                                             dim=(int(DIM_SCREEN[0] / 2) - 80, int(DIM_SCREEN[1] / 2), 80,
                                                  int(DIM_SCREEN[1] / 2) + 80),
                                             width=0)  # (left top width, left top height, right bottom width, right bottom height)
+        text__tracker = FONT_CLASS.render("Bus Tracker", True, COLOR_BLACK)
+        screen.blit(text__tracker, (int(DIM_SCREEN[0] / 2) - int(text__tracker.get_size()[0] / 2), int(DIM_SCREEN[1] / 3)))
+        for element in self.gui.items():
+            element[1].active(self.mouse)
+            if element[1].state and not self.buttonDelay:  # if clicked
+                if element[0] == "button_tracker":
+                    self.gui_tracking = not self.gui_tracking
+                    self.setTrackingName()
+                self.reset_buttondelay()
+            if element[0] == "button_tracker" and self.gui_tracking:  # button enabled state
+                element[1].surf.fill(element[1].color_active)
+                screen.blit(element[1].surf, (element[1].dim[0], element[1].dim[1]))
+
+    def surf_profile(self):
+        self.gui.clear()
         if platform.system() == "Windows":
             self.gui['button_logger'] = Button(color_inactive=COLOR_BLUE,
                                                 surf=pygame.Surface((80, 80), pygame.HWSURFACE),
                                                 dim=(int(DIM_SCREEN[0] / 4) - 80, int(DIM_SCREEN[1] / 2), 80,
                                                      int(DIM_SCREEN[1] / 2) + 80),
                                                 width=0)  # (left top width, left top height, right bottom width, right bottom height)
+            text__logger = FONT_CLASS.render("Log Faces", True, COLOR_BLACK)
+            screen.blit(text__logger, (int(DIM_SCREEN[0] / 4) - int(text__logger.get_size()[0] / 2), int(DIM_SCREEN[1] / 3)))
             self.gui['button_scanner'] = Button(color_inactive=COLOR_GREEN,
                                                 surf=pygame.Surface((80, 80), pygame.HWSURFACE),
                                                 dim=(int(DIM_SCREEN[0] * 0.75) - 80, int(DIM_SCREEN[1] / 2), 80,
                                                      int(DIM_SCREEN[1] / 2) + 80),
                                                 width=0)  # (left top width, left top height, right bottom width, right bottom height)
-        if self.classTrackingTime:
-            thirtyminsbefore = self.classTrackingTime - datetime.timedelta(minutes=30)
-            here = False
-            for bus in self.buses:
-                if bus['api_data']['lat'] == 44.6116083 and bus['api_data'][
-                    'lon'] == -73.1620276:  # PLACEHOLDER COORD, figure out actual ranges and directions
-                    here = True
-            if datetime.datetime.now() > thirtyminsbefore:  #and here:  # TODO: determine direction and bus lat and lon
-                print("Bus is here!")
-                self.setTrackingHere()
-                # TODO: Play sound
-                # TODO: Everything below should be put into a function to reset the tracking state.
-                here = False
-                self.gui_tracking = False
-                self.classTrackingTime = None
+            text__scanner = FONT_CLASS.render("Scan", True, COLOR_BLACK)
+            screen.blit(text__scanner, (int(DIM_SCREEN[0] * 0.75) - int(text__scanner.get_size()[0] / 2), int(DIM_SCREEN[1] / 3)))
+
         for element in self.gui.items():
             element[1].active(self.mouse)
-            if element[1].state and not self.gui_tracking and not self.buttonDelay:  # if clicked
-                if element[0] == "button_tracker":
-                    self.gui_tracking = True
-                    self.setTrackingName()
+            if element[1].state and not self.buttonDelay:  # if clicked
                 if element[0] == "button_logger":
                     kinectProcess_logger = subprocess.Popen([PATH_KINECT_LOGGER], stdout=subprocess.PIPE)
-                    print("Logger: " + str(kinectProcess_logger.communicate()[0]))
+                    # print("Logger: " + str(kinectProcess_logger.communicate()[0]))
                 if element[0] == "button_scanner":
                     kinectProcess_scanner = subprocess.Popen([PATH_KINECT_SCANNER], stdout=subprocess.PIPE)
-                    print("Scanner: " + str(kinectProcess_scanner.communicate()[0]))
+                    user = kinectProcess_scanner.communicate()[0].decode()
+                    print("Scanner: " + user)
                     #TODO: Implement if-statement here so that it takes the outputted username, sets the profile to it,
                     #TODO: and then starts tracking the bus for the user.
+                    if user != "":
+                        self.setProfile(user)
+                        self.setTrackingName()
                 self.reset_buttondelay()
-        text__status = FONT_CLASS.render(self.classTrackingStatus, True, COLOR_BLACK)
-        screen.blit(text__status, (int((DIM_SCREEN[0] / 2) - int(text__status.get_size()[0] / 2)) - 2, int(DIM_SCREEN[1] / 3)))
 
     def surf_plot(self):
         pass
@@ -614,7 +659,6 @@ class Environment:
         self.resizeImage(PATH_IMAGE_SPONSOR, "JPEG", self.scale(constraintH=int(DIM_SCREEN[1] / 2), size=im.size))
         self.sponsor = Card(
             title=str(sponsor_raw.contents[1].contents[1].contents[1].attrs['alt']),
-            # TODO: Parse description html (maybe allow it to italicize when printing it?)
             desc=str(sponsor_raw.contents[1].contents[3].contents[1]),
             img=pygame.image.load(PATH_IMAGE_SPONSOR)
         )
@@ -637,13 +681,20 @@ class Environment:
 
             self.resizeImage(movieImagePath, "JPEG", self.scale(constraintH=int(DIM_SCREEN[1] / 2), size=im.size))
 
+            desc = listing.contents[1].contents[3].contents[5].text
+            tags = []
+            for tag in list(filter(lambda x: (type(x) is type(listing.contents[1].contents[3].contents[5])),
+                        listing.contents[1].contents[3].contents[5:])):
+                tags.append(tag.text)
+            if len(tags) > 1:
+                desc = "\n".join(tags)
+
             self.movies.append(Card(
-                title=str(listing.contents[1].contents[3].contents[1].contents[0]),
+                title=listing.contents[1].contents[3].contents[1].text,
                 # TODO: Parse description html (maybe allow it to italicize when printing it?)
-                desc=str(listing.contents[1].contents[3].contents[5]),
+                desc=desc,
                 # TODO: If no image is downloaded, assign img to PATH_IMAGE_OFFLINE
                 img=pygame.image.load(movieImagePath),
-
             ))
 
     def pullStationData(self, ndays, param_id, station_id):
@@ -659,6 +710,88 @@ class Environment:
         except (requests.exceptions.ConnectionError, socket.gaierror, ConnectionError) as e:
             print(e)
         return data
+    def pullImageBurlington(self):
+        # Download image from Camnet
+        downloadImage('burlington_left.jpg', 'https://hazecam.net/images/large/burlington_left.jpg')
+        self.resizeImage(PATH_IMAGE_BURLINGTON_LEFT, "JPEG", DIM_SCREEN)
+        downloadImage('burlington_right.jpg', 'https://hazecam.net/images/large/burlington_right.jpg')
+        self.resizeImage(PATH_IMAGE_BURLINGTON_RIGHT, "JPEG", DIM_SCREEN)
+
+    def pullTime(self):
+        d = datetime.datetime.strptime(str(datetime.datetime.now().time()), "%H:%M:%S.%f")
+        self.time_text = (
+            FONT_BM.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_BM.render(d.strftime("%p"), True, COLOR_BLACK))
+
+    def pullShuttle(self):
+        html = requests.get("https://shuttle.champlain.edu/shuttledata")
+        self.getBusLocations(html)
+
+    def setProfile(self, user):
+        for profile in self.profiles:
+            if profile.name is user:
+                self.user = profile
+
+    def pullProfiles(self):
+        self.profiles.clear()  # clear profiles
+        self.profiles.append(Profile(pages=[[CONTENT_PROFILE, PATH_IMAGE_BLANK, lambda func: self.surf_profile()]]))  # add default profile
+        files = [f for f in os.listdir(os.path.join(DIR_BASE, 'profiles')) if os.path.isfile(os.path.join(os.path.join(DIR_BASE, 'profiles'), f))]
+        for file in files:
+            with open(os.path.join(os.path.join(DIR_BASE, 'profiles'), file)) as fp:
+                calendars = fp.readline()
+                pages = str(fp.readline()).split(", ")
+                pagesContent = [[CONTENT_PROFILE, PATH_IMAGE_BLANK, lambda func: self.surf_profile()]]
+                if pages != [""]:
+                    for page in pages:
+                        pagesContent.append(self.contentList[int(page)])
+                self.profiles.append(Profile(name=file[:-4], calendars=str(calendars).split(", "), pages=pagesContent))
+
+    # Code Adapted from https://www.pygame.org/wiki/TextWrap
+    # draw some text into an area of a surface
+    # automatically wraps words
+    # returns any text that didn't get blitted
+    def drawText(self, surface, text, color, rect, font, aa=False, bkg=None):
+        y = rect.top
+        lineSpacing = -2
+
+        # get the height of the font
+        fontHeight = font.size("Tg")[1]
+
+        while text:
+            i = 1
+
+            # determine if the row of text will be outside our area
+            if y + fontHeight > rect.bottom:
+                break
+
+            # determine maximum width of line
+            while font.size(text[:i])[0] < rect.width and i < len(text):
+                i += 1
+
+            # if we've wrapped the text, then adjust the wrap to the last word
+            if i < len(text):
+                i = text.rfind(" ", 0, i) + 1
+
+            # render the line and blit it to the surface
+            if bkg:
+                image = font.render(text[:i], 1, color, bkg)
+                image.set_colorkey(bkg)
+            else:
+                image = font.render(text[:i], aa, color)
+
+            surface.blit(image, (rect.left, y))
+            y += fontHeight + lineSpacing
+
+            # remove the text we just blitted
+            text = text[i:]
+
+        return text
+
+    def toggleSlideshow(self):
+        if self.slideshow:  # if the slideshow bool is enabled:
+            pygame.time.set_timer(USEREVENT + 2, 0)  # turn off the slideshow userevent
+        else:  # if the slideshow bool is disabled:
+            pygame.time.set_timer(USEREVENT + 2, 10000)  # turn on the slideshow userevent
+        self.slideshow = not self.slideshow  # toggle the slideshow bool
 
     def imChecker(self, iSize, im, movieImagePath):
         try:
@@ -669,39 +802,23 @@ class Environment:
             print("Attempting \"", iSize[28:30], "\" next.")
         return im
 
-    def pullImageBurlington(self):
-        # Download image from Camnet
-        downloadImage('burlington_left.jpg', 'https://hazecam.net/images/large/burlington_left.jpg')
-        self.resizeImage(PATH_IMAGE_BURLINGTON_LEFT, "JPEG", DIM_SCREEN)
-        downloadImage('burlington_right.jpg', 'https://hazecam.net/images/large/burlington_right.jpg')
-        self.resizeImage(PATH_IMAGE_BURLINGTON_RIGHT, "JPEG", DIM_SCREEN)
 
     def resizeImage(self, imgPath, imgType, imgDim):
         im = Image.open(imgPath)
         im_resized = im.resize(imgDim, Image.ANTIALIAS)
         im_resized.save(imgPath, imgType)
 
-    def pullTime(self):
-        d = datetime.datetime.strptime(str(datetime.datetime.now().time()), "%H:%M:%S.%f")
-        self.time_text = (
-            FONT_BM.render(d.strftime("%I:%M"), True, COLOR_BLACK), FONT_BM.render(d.strftime("%p"), True, COLOR_BLACK))
-
-    def toggleSlideshow(self):
-        if self.slideshow:  # if the slideshow bool is enabled:
-            pygame.time.set_timer(USEREVENT + 2, 0)  # turn off the slideshow userevent
-        else:  # if the slideshow bool is disabled:
-            pygame.time.set_timer(USEREVENT + 2, 10000)  # turn on the slideshow userevent
-        self.slideshow = not self.slideshow  # toggle the slideshow bool
-
     def scale(self, constraintH, size):
         return [int(size[0] / (size[1] / constraintH)), constraintH]
 
-    def pullShuttle(self):
-        html = requests.get("https://shuttle.champlain.edu/shuttledata")
-        self.getBusLocations(html)
-
-    def getMarkerInfo(self, html):
+    # Get Maps display information from Champlain College Shuttle Maps Markers API:
+    # https://docs.google.com/spreadsheets/d/1CPgjCQZ-AUcNNvq8wAMlwfm9lKmsQuThwg9oh_EI0n0/edit#gid=0
+    # For access to this sheet, contact champlaindevs@gmail.com.  Stops and busses are added to the CC_SHUTTLE.custom_overlays|buses.
+    # Each "custom_overlays" and "bus" marker is composed of a model and a view - the model is information collected from Champlain APIs
+    # (CC_SHUTTLE.<custom_overlays|markers|buses>.api_data) and the view is the corresponding Google Maps Marker (CC_SHUTTLE.<custom_overlays|markers|buses>.bottom_right).
+    def getMarkerInfo(self):
         #  Validate result from Shuttle Maps Markers API Spreadsheet
+        html = requests.get("https://forms.champlain.edu/googlespreadsheet/find/type/shuttlemapsapi")
         result = json.loads(html.text)
         if type(result) == 'undefined' or type(result['message']) == 'undefined' or type(
                 result['message']) != list or len(result['message']) is None:
@@ -718,27 +835,28 @@ class Environment:
 
         #  Loop through each custom_overlays returned from the Shuttle Maps Markers API Spreadsheet looking for buses and custom_overlays
         for record in results:
+            record['direction'] = ""
             if record['record_type'] == 'bus':
                 self.buses.append({
                     'api_data': record,
-                    'gm_object': None
+                    'gm_object': False  # None
                 })
             elif record['record_type'] == 'marker':
                 marker = None
-                # marker = {
-                #     'api_data': record,
-                #     'gm_object': google.maps.Marker({
-                #         'position': google.maps.LatLng(record.lat, record.lon),
-                #         'map': self.map, # map, #TODO: make map variable and object
-                #         'icon': {
-                #             'url': record.image_url,
-                #             'size': google.maps.Size(record.width, record.height),
-                #             'origin': google.maps.Point(0, 0),
-                #             'anchor': google.maps.Point(math.floor(record.width/2), math.floor(record.height/2))
-                #         },
-                #         'zIndex': 1
-                #     })
-                # }
+                marker = {
+                    'api_data': record,
+                    'gm_object': False  # None  # gmaps.Marker(gmaps.LatLng(record.lat, record.lon), label=record['id'], info_box_content=record['id'])
+                    # What USED to be inside of 'gm_object':
+                    # {'position': gmaps.LatLng(record.lat, record.lon),
+                    # 'map': self.map,  # map, #TODO: make map variable and object
+                    # 'icon': {
+                    #     'url': record['image_url'],
+                    #     'size': google.maps.Size(record['width'], record['height']),
+                    #     'origin': google.maps.Point(0, 0),
+                    #     'anchor': google.maps.Point(math.floor(record.width / 2), math.floor(record.height / 2))
+                    # },
+                    # 'zIndex': 1}
+                }
                 self.markers.append(marker)
 
                 #  Uncomment to debug markers
@@ -746,7 +864,7 @@ class Environment:
             elif record['record_type'] == 'custom_overlays':
                 self.custom_overlays.append({
                     'api_data': record,
-                    'gm_object': None
+                    'gm_object': False  # None
                 })
 
         #  End results.forEach ...
@@ -775,12 +893,12 @@ class Environment:
 
             #  If no bus display information was found (i.e. bus ID was not in CC Shuttle Maps Marker API), then use default config
             #  that should be set up in that api (Look for bus with ID column set to "default").
-            if not busIndex and not self.defaultIndex:
+            if busIndex == -1 and self.defaultIndex:
                 self.buses.extend(
                     self.buses)  # self.buses.push($.extend({}, self.buses[self.defaultIndex]))  # TODO: test and make sure this is actually extending the list
-                self.buses[len(self.buses) - 1]['api_data']['id'] = bus['UnitID'];
+                self.buses[len(self.buses) - 1]['api_data']['id'] = bus['UnitID']
 
-            if not busIndex:
+            if busIndex == -1:
                 print("Cannot display bus " + bus[
                     'UnitID'] + ": no bus with this ID exists AND there is no default bus configured in Shuttle Maps Markers API");
                 return
@@ -800,55 +918,71 @@ class Environment:
             bApi['minutesAgoUpdated'] = int(d1_ts - d2_ts) / 60
 
             #  new, recently moved or stale?
-            isNewBus = not bMarker,  # TODO: Does this even work?
-            hasMovedSinceLastUpdate = False;
-            if not isNewBus:
-                latChange = abs(bApi['lat'] - bus['Lat'])
-                lonChange = abs(bApi['lon'] - bus['Lon'])
+            isNewBus = bMarker,  # TODO: Does this even work?
+            hasMovedSinceLastUpdate = False
+            if isNewBus.__contains__(True):
+                latChange = abs(float(bApi['lat']) - float(bus['Lat']))
+                lonChange = abs(float(bApi['lon']) - float(bus['Lon']))
                 if latChange > .0001 or lonChange > .0001:
                     hasMovedSinceLastUpdate = True
 
-            # if bApi['minutesAgoUpdated'] < 5000:
-            #     print("      : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(bApi['minutesAgoUpdated']) + " direction: " + bus['Direction'])
+            # if bApi['minutesAgoUpdated'] < 2000:
+            #     print("      : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(round(bApi['minutesAgoUpdated'], 2)) + " direction: " + bus['Direction'])
+
+            #  update bus's model with new lat, lon
+            bApi['lat'] = bus['Lat']
+            bApi['lon'] = bus['Lon']
+            bApi['direction'] = bus['Direction']  # add 'direction' to api_data
+            self.buses[busIndex]['api_data'] = bApi  # update the bus at its index in self.buses
 
             #  If bus has been active within the last 30 minutes, then display it on the map.  In order for a bus to show up, it needs
             #  to be broadcasting its location and not be still for 30 or more minutes.
-            if bApi['minutesAgoUpdated'] < 30:
-                if not isNewBus and hasMovedSinceLastUpdate:
-                    # if (type(bus.animation == "undefined") or !bus.animation.animating):
-                    # bMarker.setPosition(google.maps.LatLng(bApi.lat,bApi.lon));
-                    self.animateBus(self.buses[busIndex], {
-                        'lat': bus['Lat'],
-                        'lon': bus['Lon']
-                    })
-                    # }
-                    print(">     : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(
-                        bApi['minutesAgoUpdated']) + " direction: " + bus['Direction'])
-                elif isNewBus:
-                    #  update bus's model with new lat, lon
-                    bApi['lat'] = bus['Lat']
-                    bApi['lon'] = bus['Lon']
-                    print(">New! : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(
-                        bApi['minutesAgoUpdated']) + " direction: " + bus['Direction'])
+            if isNewBus.__contains__(True) and hasMovedSinceLastUpdate: # and 44.455 >= float(self.buses[busIndex]['api_data']['lat']):
+                # if (type(bus.animation == "undefined") or !bus.animation.animating):
+                # bMarker.setPosition(google.maps.LatLng(bApi.lat,bApi.lon));
+                self.animateBus(self.buses[busIndex], {
+                    'lat': bus['Lat'],
+                    'lon': bus['Lon']
+                })
+                # }
+                print(">     : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(round(bApi['minutesAgoUpdated'], 2)) + " direction: " + bus['Direction'] + " : " + self.buses[busIndex]['api_data']['lat'] + ", " + self.buses[busIndex]['api_data']['lon'])
+            elif isNewBus.__contains__(False):
 
-                    #  update view with new GM Marker for bus
-                    marker = None
-                    # marker = google.maps.Marker({
-                    #     'position': google.maps.LatLng(float(bApi['lat']), float(bApi['lon'])),
-                    #     'map': self.map,
-                    #     'icon': {
-                    #         'url': bApi['image_url'],
-                    #         'size': google.maps.Size(int(bApi['width']), int(bApi['height'])),
-                    #         'origin': google.maps.Point(0,0),
-                    #         'anchor': google.maps.Point(math.floor(bApi['width']/2), bApi['height'])
-                    #     },
-                    #     'title': bApi['title'],
-                    #     'zIndex': 3
-                    # })
-                    self.buses[busIndex]['gm_object'] = marker
+                #  update view with new GM Marker for bus
+                marker = True  # None
+                # marker = google.maps.Marker({
+                #     'position': google.maps.LatLng(float(bApi['lat']), float(bApi['lon'])),
+                #     'map': self.map,
+                #     'icon': {
+                #         'url': bApi['image_url'],
+                #         'size': google.maps.Size(int(bApi['width']), int(bApi['height'])),
+                #         'origin': google.maps.Point(0,0),
+                #         'anchor': google.maps.Point(math.floor(bApi['width']/2), bApi['height'])
+                #     },
+                #     'title': bApi['title'],
+                #     'zIndex': 3
+                # })
+                self.buses[busIndex]['gm_object'] = marker
 
-                    #  Uncomment to debug bus marker creation
-                    #  print("created bus: ", self.buses[busIndex])
+                #  Uncomment to debug bus marker creation
+                #  print("created bus: ", self.buses[busIndex])
+                if bApi['minutesAgoUpdated'] < 30:
+                    print(">New! : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(round(bApi['minutesAgoUpdated'], 2)) + " direction: " + bus['Direction'] + " : " + self.buses[busIndex]['api_data']['lat'] + ", " + self.buses[busIndex]['api_data']['lon'])
+
+            # Bus notification
+            # Lat: 44.4736704
+            # Lon: -73.2153914
+            #-73.2088472
+            #-73.2134543
+            if self.classTrackingTime:
+                thirtyminsbefore = datetime.datetime.now() > self.classTrackingTime - datetime.timedelta(minutes=30)
+                if 44.478 >= float(self.buses[busIndex]['api_data']['lat']) >= 44.465 and -73.208 >= float(self.buses[busIndex]['api_data']['lon']) >= -73.216 and (100 >= int(self.buses[busIndex]['api_data']['direction']) >= 0): #and thirtyminsbefore:  # PLACEHOLDER COORD, figure out actual ranges and directions
+                    print(self.buses[busIndex]['api_data']['id'] + " is here!")
+                    self.setTrackingHere(self.buses[busIndex])
+                    # TODO: Play sound
+                    # TODO: Everything below should be put into a function to reset the tracking state.
+                    self.gui_tracking = False
+                    self.classTrackingTime = None
 
     # Implement Animate Marker Functionality
     # -------------------------------------
@@ -856,13 +990,14 @@ class Environment:
     # smoothly animate it to the new location.
 
     def animateBus(self, bus, newLatLon):
-        bus.animation = {
-            'animating': True,
-            'i': 0,
-            'deltaLat': (float(newLatLon['lat']) - float(bus['api_data']['lat'])) / 50,
-            'deltaLon': (float(newLatLon['lon']) - float(bus['api_data']['lon'])) / 50
-        }
-        self._animateBus(bus)
+        pass
+        # bus.animation = {
+        #     'animating': True,
+        #     'i': 0,
+        #     'deltaLat': (float(newLatLon['lat']) - float(bus['api_data']['lat'])) / 50,
+        #     'deltaLon': (float(newLatLon['lon']) - float(bus['api_data']['lon'])) / 50
+        # }
+        # self._animateBus(bus)
 
     def _animateBus(self, bus):
         # update model
@@ -1038,78 +1173,77 @@ class Environment:
         # return 100 - widthWithScroll;
 
     def setTrackingName(self):
-        eTime, event = pullCalendarClass()
-        if not eTime:
-            self.classTrackingStatus = event + " Not tracking."
+        eTime, event = self.pullCalendarClass()
+        if not eTime or self.gui_tracking == False:
+            postmessage = " Not tracking."
+            # if self.gui_tracking == False:
+            self.classTrackingStatus = event + postmessage
+            self.classTrackingTime = None
         else:
             self.classTrackingStatus = "\"" + event + "\" at " + eTime.strftime("%I:%M %p")
-        self.classTrackingTime = eTime
+            self.classTrackingTime = eTime
 
-    def setTrackingHere(self):
-        self.classTrackingStatus = "Your bus is here for " + self.classTrackingStatus
+    def setTrackingHere(self, bus):
+        self.classTrackingStatus = bus['api_data']['title'] + " " + bus['api_data']['id'] + " is here for " + self.classTrackingStatus
 
+    #  Adapted from https://developers.google.com/calendar/quickstart/python
+    def pullCalendarClass(self):
+        """Shows basic usage of the Google Calendar API.
+        Prints the start and name of the next 10 events on the user's calendar.
+        """
+        creds = None
+        # The file token.pickle stores the user's access and refresh tokens, and is
+        # created automatically when the authorization flow completes for the first
+        # time.
+        pathname = "token_" + self.user.name + ".pickle"
+        if os.path.exists(pathname):
+            with open(pathname, 'rb') as token:
+                creds = pickle.load(token)
+        # If there are no (valid) credentials available, let the user log in.
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    'credentials.json', SCOPES)
+                creds = flow.run_local_server(port=0)
+            # Save the credentials for the next run
+            with open(pathname, 'wb') as token:
+                pickle.dump(creds, token)
 
-# If modifying these scopes, delete the file token.pickle.
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+        service = build('calendar', 'v3', credentials=creds)
 
-
-#  Adapted from https://developers.google.com/calendar/quickstart/python
-def pullCalendarClass():
-    """Shows basic usage of the Google Calendar API.
-    Prints the start and name of the next 10 events on the user's calendar.
-    """
-    creds = None
-    # The file token.pickle stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+        # Call the Calendar API
+        now = datetime.datetime.today().isoformat() + 'Z'  # 'Z' indicates UTC time
+        tonight = datetime.datetime.combine(datetime.datetime.utcnow(),
+                                            datetime.datetime.max.time()).isoformat() + 'Z'  # 'Z' indicates UTC time
+        print('Getting upcoming classes for today')
+        calendars = service.calendarList().list().execute()  # grab all calendars
+        calID = None
+        for calendar in calendars['items']:
+            if "Class Times" in calendar['summary']:
+                calID = calendar['id']
+        if not calID:
+            print(
+                "No \'Class Times\' calendar found for user. Please designate class times with a calendar that includes \'Class Times\' in the title.")
+            return None, "No \'Class Times\' calendar found!"
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
+            cal_day_result = service.events().list(calendarId=calID,
+                                                   maxResults=10,  # Only retrieve one class.
+                                                   timeMin=now, timeMax=tonight,
+                                                   singleEvents=True,
+                                                   orderBy="startTime").execute()
 
-    service = build('calendar', 'v3', credentials=creds)
+            event = None
+            for course in cal_day_result['items']:
+                if datetime.datetime.strptime(course['start']['dateTime'][:19].strip(),
+                                              "%Y-%m-%dT%H:%M:%S") > datetime.datetime.today():
+                    event = course  # Only retrieve one class from the list.
+                    break
 
-    # Call the Calendar API
-    now = datetime.datetime.today().isoformat() + 'Z'  # 'Z' indicates UTC time
-    tonight = datetime.datetime.combine(datetime.datetime.utcnow(),
-                                        datetime.datetime.max.time()).isoformat() + 'Z'  # 'Z' indicates UTC time
-    print('Getting upcoming classes for today')
-    calendars = service.calendarList().list().execute()  # grab all calendars
-    calID = None
-    for calendar in calendars['items']:
-        if "Class Times" in calendar['summary']:
-            calID = calendar['id']
-    if not calID:
-        print(
-            "No \'Class Times\' calendar found for user. Please designate class times with a calendar that includes \'Class Times\' in the title.")
-        return None, "No \'Class Times\' calendar found!"
-    else:
-        cal_day_result = service.events().list(calendarId=calID,
-                                               maxResults=10,  # Only retrieve one class.
-                                               timeMin=now, timeMax=tonight,
-                                               singleEvents=True,
-                                               orderBy="startTime").execute()
-
-        event = None
-        for course in cal_day_result['items']:
-            if datetime.datetime.strptime(course['start']['dateTime'][:19].strip(),
-                                          "%Y-%m-%dT%H:%M:%S") > datetime.datetime.today():
-                event = course  # Only retrieve one class from the list.
-                break
-
-        if not event:
-            print('No upcoming class found.')
-            return None, "No upcoming classes!"
-        start = event['start'].get('dateTime', event['start'].get('date'))
-        print(start[:19].strip(), event['summary'])
-        return datetime.datetime.strptime(start[:19].strip(), "%Y-%m-%dT%H:%M:%S"), event['summary']
+            if not event:
+                print('No upcoming class found.')
+                return None, "No upcoming classes!"
+            start = event['start'].get('dateTime', event['start'].get('date'))
+            print(start[:19].strip(), event['summary'])
+            return datetime.datetime.strptime(start[:19].strip(), "%Y-%m-%dT%H:%M:%S"), event['summary']
