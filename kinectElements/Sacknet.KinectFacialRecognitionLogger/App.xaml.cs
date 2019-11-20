@@ -14,6 +14,15 @@ namespace Sacknet.KinectFacialRecognitionLogger
     public partial class App : Application
     {
         /// <summary>
+        /// handles arguments
+        /// </summary>
+        
+        //private void Application_Startup(object sender, StartupEventArgs e)
+        //{
+        //    MainWindow
+        //}
+
+        /// <summary>
         /// Displays stack trace on unhandled exceptions
         /// </summary>
         private void Application_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)

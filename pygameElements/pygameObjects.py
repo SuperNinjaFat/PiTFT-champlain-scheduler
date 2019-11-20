@@ -9,7 +9,6 @@ import os
 import os.path
 import fileinput
 import subprocess
-import datetime
 import time
 import socket
 import pygame
@@ -23,6 +22,7 @@ import pickle
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+import datetime
 
 # from html.parser import HTMLParser
 
@@ -68,6 +68,8 @@ PATH_KINECT_SCANNER = os.path.join(DIR_BASE, *"kinectElements/Sacknet.KinectFaci
 
 # Tracking Status
 TRACKING_DEFAULT = "Not tracking for next class."
+TRACKING_NULL = "Not logged in."
+TRACKING_TIMEOUT = "No approaching bus has been detected."
 
 # Username
 USER_DEFAULT = "Default"
@@ -158,8 +160,8 @@ ICON_TEST = 1  # Slideshow Icon
 ICON_MAP = 2  # Slideshow Icon
 
 # Content switching
-CONTENT_TEMPERATURE = {"number": 0,
-                       "name": "Temperature: Lake"}
+CONTENT_PROFILE = {"number": 0,
+                 "name": "Profile Login"}
 CONTENT_PICTURE = {"number": 1,
                    "name": "Burlington Live Camera"}
 CONTENT_MAINSTREET = {"number": 2,
@@ -168,8 +170,8 @@ CONTENT_SHUTTLE = {"number": 3,
                    "name": "Shuttle Map"}
 CONTENT_CLASS = {"number": 4,
                  "name": "Class Shuttle Alert"}
-CONTENT_PROFILE = {"number": 5,
-                 "name": "Profile Login"}
+CONTENT_TEMPERATURE = {"number": 5,
+                       "name": "Temperature: Lake"}
 
 
 class Card:
@@ -229,7 +231,8 @@ class Environment:
     def __init__(self):
         # Initialize data buffers
         self.classTrackingTime = None
-        self.classTrackingStatus = TRACKING_DEFAULT
+        self.classTrackingStatus = TRACKING_NULL
+        self.className = None
         self.map = None
         self.defaultIndex = -1
         self.custom_overlays = []
@@ -244,17 +247,16 @@ class Environment:
         self.gui = {}
         self.gui_picture_toggle = True
         self.gui_mainstreet_iter = 0
-        self.gui_tracking = False
 
         self.sponsor = Card
         # Define content list TODO: Settings - Save enabled/disabled content
         self.contentList = [
-            [CONTENT_TEMPERATURE, PATH_IMAGE_GRAPH_TEMPERATURE, lambda func: self.surf_plot()],
+            [CONTENT_PROFILE, PATH_IMAGE_BLANK, lambda func: self.surf_profile()],
             [CONTENT_PICTURE, PATH_IMAGE_BURLINGTON_LEFT, lambda func: self.surf_picture()],
             [CONTENT_MAINSTREET, PATH_IMAGE_BLANK, lambda func: self.surf_mainstreet()],
             [CONTENT_SHUTTLE, PATH_IMAGE_STARTUP, lambda func: self.surf_shuttle()],
             [CONTENT_CLASS, PATH_IMAGE_BLANK, lambda func: self.surf_class()],
-            [CONTENT_PROFILE, PATH_IMAGE_BLANK, lambda func: self.surf_profile()],
+            [CONTENT_TEMPERATURE, PATH_IMAGE_GRAPH_TEMPERATURE, lambda func: self.surf_plot()],
         ]
         surf = pygame.Surface(DIM_SCREEN)
         surf.convert()
@@ -266,7 +268,7 @@ class Environment:
         self.slideshow = False  # slideshow toggler
         self.buttonDelay = False  # Button delay
         self.backlight = True  # Backlight is On
-        self.cIndex = 0  # Start with lake temperature
+        self.cIndex = CONTENT_PROFILE['number']  # Start with profile
 
         # Icons
         self.icon = [pygame.transform.scale(pygame.image.load(PATH_ICON_SLIDESHOW), DIM_ICON),  # Slideshow
@@ -281,7 +283,7 @@ class Environment:
         self.getMarkerInfo()
         self.pullShuttle()
         self.pullProfiles()  # Load Profiles
-        # self.setTrackingName()  # TODO: *****************TEMPORARY*******************
+        # self.setTracking()  # TODO: *****************TEMPORARY*******************
         self.setProfile(USER_DEFAULT)  # TODO: Allow an option for the last user to be re-logged in upon bootup
 
         # You have to run a set-surface function before the slides start up.
@@ -407,16 +409,19 @@ class Environment:
             screen.blit(self.icon[ICON_SLIDESHOW], (44, 1))
         if self.buttonDelay:  # if the buttonDelay bool is enabled, display the icon.
             screen.blit(self.icon[ICON_TEST], (59, 1))
-        if self.gui_tracking:  # if tracking the next bus, bool is enabled, display the icon.
+        if self.classTrackingTime:  # if tracking the next bus, bool is enabled, display the icon.
             screen.blit(self.icon[ICON_MAP], (74, 1))
-
-        # Profile Name
-        profile__name = FONT_BM.render("User: " + self.user.name, True, COLOR_BLACK)
-        screen.blit(profile__name, ((int(DIM_SCREEN[0] / 2) - profile__name.get_size()[0]) - 2, 1))
 
         # Content Name
         cont__name = FONT_BM.render(self.user.pages[self.cIndex][0]['name'], True, COLOR_BLACK)
-        screen.blit(cont__name, ((DIM_SCREEN[0] - cont__name.get_size()[0]) - 2, 1))
+        screen.blit(cont__name, ((int(DIM_SCREEN[0] / 2) - cont__name.get_size()[0]) - 2, 1))
+
+        # Profile Name
+        if self.user.name != USER_DEFAULT:
+            profile__name = FONT_BM.render("User: " + self.user.name, True, COLOR_BLACK)
+        else:
+            profile__name = FONT_BM.render("Not Logged In", True, COLOR_BLACK)
+        screen.blit(profile__name, ((DIM_SCREEN[0] - profile__name.get_size()[0]) - 2, 1))
 
         # Clock
         # pygame.draw.rect(screen, COLOR_WHITE, pygame.Rect((0, 0), (40, 13)), 0)  # Clock backing
@@ -528,49 +533,78 @@ class Environment:
     def surf_class(
             self):  # TODO: Consists of a button or scanner that activates an alert for the bus before your next class.
         self.gui.clear()  # clear gui
-        text__status = FONT_CLASS.render(self.classTrackingStatus, True, COLOR_BLACK)
-        screen.blit(text__status, (int((DIM_SCREEN[0] / 2) - int(text__status.get_size()[0] / 2)) - 2, int(DIM_SCREEN[1] / 5)))
+        self.drawText(screen,
+                      self.classTrackingStatus,
+                      COLOR_BLACK,
+                      pygame.Rect(int(DIM_SCREEN[0] / 4),
+                                  int(DIM_SCREEN[1] / 5),
+                                  int(DIM_SCREEN[0] * 0.75),
+                                  int(DIM_SCREEN[1] * 0.75)),
+                      FONT_CLASS
+                      )
+        # text__status = FONT_CLASS.render(self.classTrackingStatus, True, COLOR_BLACK)
+        # screen.blit(text__status, (int((DIM_SCREEN[0] / 2) - int(text__status.get_size()[0] / 2)) - 2, int(DIM_SCREEN[1] / 5)))
         self.gui['button_tracker'] = Button(color_inactive=COLOR_BLACK,
                                             surf=pygame.Surface((80, 80), pygame.HWSURFACE),
-                                            dim=(int(DIM_SCREEN[0] / 2) - 80, int(DIM_SCREEN[1] / 2), 80,
-                                                 int(DIM_SCREEN[1] / 2) + 80),
+                                            dim=(int(DIM_SCREEN[0] / 2) - 80, int(DIM_SCREEN[1] / 2), 80, 80),
                                             width=0)  # (left top width, left top height, right bottom width, right bottom height)
         text__tracker = FONT_CLASS.render("Bus Tracker", True, COLOR_BLACK)
         screen.blit(text__tracker, (int(DIM_SCREEN[0] / 2) - int(text__tracker.get_size()[0] / 2), int(DIM_SCREEN[1] / 3)))
         for element in self.gui.items():
             element[1].active(self.mouse)
             if element[1].state and not self.buttonDelay:  # if clicked
-                if element[0] == "button_tracker":
-                    self.gui_tracking = not self.gui_tracking
-                    self.setTrackingName()
+                if element[0] == "button_tracker":  # if the tracker was pressed
+                    if self.classTrackingTime:
+                        self.setTracking(False)
+                    else:
+                        self.setTracking()
                 self.reset_buttondelay()
-            if element[0] == "button_tracker" and self.gui_tracking:  # button enabled state
+            if element[0] == "button_tracker" and self.classTrackingTime:  # button enabled state
                 element[1].surf.fill(element[1].color_active)
                 screen.blit(element[1].surf, (element[1].dim[0], element[1].dim[1]))
 
     def surf_profile(self):
         self.gui.clear()
         if platform.system() == "Windows":
-            self.gui['button_logger'] = Button(color_inactive=COLOR_BLUE,
+            if self.user.name is not "Default":
+                self.gui['button_logger'] = Button(color_inactive=COLOR_GREEN,
+                                                    surf=pygame.Surface((80, 80), pygame.HWSURFACE),
+                                                    dim=(int(DIM_SCREEN[0] / 4) - 80, int(DIM_SCREEN[1] / 2), 80, 80),
+                                                    width=0)  # (left top width, left top height, right bottom width, right bottom height)
+                text__logger = FONT_CLASS.render("Log Faces", True, COLOR_BLACK)
+                screen.blit(text__logger, (int(DIM_SCREEN[0] / 4) - int(text__logger.get_size()[0] / 2), int(DIM_SCREEN[1] / 3)))
+                self.gui['button_scanner'] = Button(color_inactive=COLOR_GREEN,
+                                                    surf=pygame.Surface((80, 80), pygame.HWSURFACE),
+                                                    dim=(int(DIM_SCREEN[0] * 0.75) - 80, int(DIM_SCREEN[1] / 2), 80, 80),
+                                                    width=0)  # (left top width, left top height, right bottom width, right bottom height)
+                text__scanner = FONT_CLASS.render("Scan", True, COLOR_BLACK)
+                screen.blit(text__scanner, (int(DIM_SCREEN[0] * 0.75) - int(text__scanner.get_size()[0] / 2), int(DIM_SCREEN[1] / 3)))
+        if self.user.name is "Default":
+            text__logger = FONT_CLASS.render("Login:", True, COLOR_BLACK)
+            screen.blit(text__logger,
+                        (int(DIM_SCREEN[0] / 4) - int(text__logger.get_size()[0] / 2), int(DIM_SCREEN[1] / 5)))
+            space = 0
+            for profile in self.profiles:
+                self.gui['button_' + profile.name] = Button(color_inactive=COLOR_GREEN,
+                                                    surf=pygame.Surface((80, 80), pygame.HWSURFACE),
+                                                    dim=(int(DIM_SCREEN[0] / 4) - 80 + space, int(DIM_SCREEN[1] / 2), 80, 80),
+                                                    width=0)  # (left top width, left top height, right bottom width, right bottom height)
+                text__profile = FONT_CLASS.render(profile.name, True, COLOR_BLACK)
+                screen.blit(text__profile, (int(DIM_SCREEN[0] / 4) - int(text__profile.get_size()[0] / 2) + space, int(DIM_SCREEN[1] / 3)))
+                space = space + 120
+        else:
+            self.gui['button_logout'] = Button(color_inactive=COLOR_BLUE,
                                                 surf=pygame.Surface((80, 80), pygame.HWSURFACE),
-                                                dim=(int(DIM_SCREEN[0] / 4) - 80, int(DIM_SCREEN[1] / 2), 80,
-                                                     int(DIM_SCREEN[1] / 2) + 80),
+                                                dim=(DIM_SCREEN[0] - 80, int(DIM_SCREEN[1] / 4), 80, 80),
                                                 width=0)  # (left top width, left top height, right bottom width, right bottom height)
-            text__logger = FONT_CLASS.render("Log Faces", True, COLOR_BLACK)
-            screen.blit(text__logger, (int(DIM_SCREEN[0] / 4) - int(text__logger.get_size()[0] / 2), int(DIM_SCREEN[1] / 3)))
-            self.gui['button_scanner'] = Button(color_inactive=COLOR_GREEN,
-                                                surf=pygame.Surface((80, 80), pygame.HWSURFACE),
-                                                dim=(int(DIM_SCREEN[0] * 0.75) - 80, int(DIM_SCREEN[1] / 2), 80,
-                                                     int(DIM_SCREEN[1] / 2) + 80),
-                                                width=0)  # (left top width, left top height, right bottom width, right bottom height)
-            text__scanner = FONT_CLASS.render("Scan", True, COLOR_BLACK)
-            screen.blit(text__scanner, (int(DIM_SCREEN[0] * 0.75) - int(text__scanner.get_size()[0] / 2), int(DIM_SCREEN[1] / 3)))
-
+            text__logout = FONT_CLASS.render("Logout", True, COLOR_BLACK)
+            screen.blit(text__logout,
+                        (DIM_SCREEN[0] - int(text__logout.get_size()[0] / 2), int(DIM_SCREEN[1] / 5)))
         for element in self.gui.items():
             element[1].active(self.mouse)
-            if element[1].state and not self.buttonDelay:  # if clicked
+            if element[1].state and not self.buttonDelay:  # and self.user.name is not "Default":  # if clicked
                 if element[0] == "button_logger":
-                    kinectProcess_logger = subprocess.Popen([PATH_KINECT_LOGGER], stdout=subprocess.PIPE)
+                    kinectProcess_logger = subprocess.Popen([PATH_KINECT_LOGGER, "--User", str("\"" + self.user.name + "\"")], stdout=subprocess.PIPE)
                     # print("Logger: " + str(kinectProcess_logger.communicate()[0]))
                 if element[0] == "button_scanner":
                     kinectProcess_scanner = subprocess.Popen([PATH_KINECT_SCANNER], stdout=subprocess.PIPE)
@@ -580,7 +614,14 @@ class Environment:
                     #TODO: and then starts tracking the bus for the user.
                     if user != "":
                         self.setProfile(user)
-                        self.setTrackingName()
+                        self.setTracking()
+                if element[0] == "button_logout":
+                    self.setProfile(USER_DEFAULT)
+                for profile in self.profiles:
+                    if element[0] == str("button_" + profile.name):
+                        self.setProfile(profile.name)
+                        # self.cIndex = CONTENT_PROFILE['number']  # set index to profile
+                        self.setTracking()
                 self.reset_buttondelay()
 
     def surf_plot(self):
@@ -726,19 +767,22 @@ class Environment:
         html = requests.get("https://shuttle.champlain.edu/shuttledata")
         self.getBusLocations(html)
 
-    def setProfile(self, user):
-        for profile in self.profiles:
-            if profile.name is user:
-                self.user = profile
+    def setProfile(self, user=USER_DEFAULT):
+        if user == USER_DEFAULT:
+            self.user = Profile(pages=self.contentList)
+        else:
+            for profile in self.profiles:
+                if profile.name is user:
+                    self.user = profile
 
     def pullProfiles(self):
         self.profiles.clear()  # clear profiles
-        self.profiles.append(Profile(pages=[[CONTENT_PROFILE, PATH_IMAGE_BLANK, lambda func: self.surf_profile()]]))  # add default profile
+        # self.profiles.append(Profile(pages=self.contentList))#[[CONTENT_PROFILE, PATH_IMAGE_BLANK, lambda func: self.surf_profile()]]))  # add default profile
         files = [f for f in os.listdir(os.path.join(DIR_BASE, 'profiles')) if os.path.isfile(os.path.join(os.path.join(DIR_BASE, 'profiles'), f))]
         for file in files:
             with open(os.path.join(os.path.join(DIR_BASE, 'profiles'), file)) as fp:
-                calendars = fp.readline()
-                pages = str(fp.readline()).split(", ")
+                calendars = fp.readline()  # Calendars
+                pages = str(fp.readline()).split(", ")  # Pages
                 pagesContent = [[CONTENT_PROFILE, PATH_IMAGE_BLANK, lambda func: self.surf_profile()]]
                 if pages != [""]:
                     for page in pages:
@@ -906,8 +950,8 @@ class Environment:
             #  Determine how many minutes ago the shuttle was updated
             bApi = self.buses[busIndex]['api_data']
             bMarker = self.buses[busIndex]['gm_object']
-            updated = datetime.datetime.strptime((bus['Date_Time_ISO'][:19]).strip(),
-                                                 "%Y-%m-%dT%H:%M:%S")  # TODO: Test: needs to make a date object and parse the time
+            updated = datetime.datetime.strptime((bus['Date_Time']).replace('\\', ''), "%d/%m/%Y %H:%M:%S %p")  # old way: datetime.datetime.strptime((bus['Date_Time_ISO'][:19]).strip(), "%Y-%m-%dT%H:%M:%S")
+
             now = datetime.datetime.today()
             # Adapted from https://stackoverflow.com/questions/2788871/date-difference-in-minutes-in-python
             # Convert to Unix timestamp
@@ -970,18 +1014,30 @@ class Environment:
                     print(">New! : \"" + bApi['title'] + "\" : \"" + bApi['id'] + "\" : " + str(round(bApi['minutesAgoUpdated'], 2)) + " direction: " + bus['Direction'] + " : " + self.buses[busIndex]['api_data']['lat'] + ", " + self.buses[busIndex]['api_data']['lon'])
 
             # Bus notification
-            # Lat: 44.4736704
-            # Lon: -73.2153914
-            #-73.2088472
-            #-73.2134543
+            # TODO: Make bus tracking a separate function and make location checking based off of a bus object.
             if self.classTrackingTime:
                 thirtyminsbefore = datetime.datetime.now() > self.classTrackingTime - datetime.timedelta(minutes=30)
-                if 44.478 >= float(self.buses[busIndex]['api_data']['lat']) >= 44.465 and -73.208 >= float(self.buses[busIndex]['api_data']['lon']) >= -73.216 and (100 >= int(self.buses[busIndex]['api_data']['direction']) >= 0): #and thirtyminsbefore:  # PLACEHOLDER COORD, figure out actual ranges and directions
+                threeminsbefore = datetime.datetime.now() > self.classTrackingTime - datetime.timedelta(minutes=3)
+                # if latRange > 0.01
+                busRange = {}
+                busRange['lat'] = 44.4693  #44.4685   #44.47
+                busRange['lon'] = -73.2151  #-73.2150  #-73.21
+                busRange['direction'] = 360
+
+                latRange = abs(float(busRange['lat']) - float(self.buses[busIndex]['api_data']['lat']))
+                lonRange = abs(float(busRange['lon']) - float(self.buses[busIndex]['api_data']['lon']))
+                dirRange = abs(int(busRange['direction'])) - int(self.buses[busIndex]['api_data']['direction'])
+                # if 44.478 >= float(self.buses[busIndex]['api_data']['lat']) >= 44.465 and -73.208 >= float(self.buses[busIndex]['api_data']['lon']) >= -73.216 and (100 >= int(self.buses[busIndex]['api_data']['direction']) >= 0): #and thirtyminsbefore:
+                if .005 > latRange and .005 > lonRange and 30 > dirRange:  # and thirtyminsbefore:
                     print(self.buses[busIndex]['api_data']['id'] + " is here!")
-                    self.setTrackingHere(self.buses[busIndex])
+                    self.alertHere(self.buses[busIndex])
                     # TODO: Play sound
                     # TODO: Everything below should be put into a function to reset the tracking state.
-                    self.gui_tracking = False
+                    self.classTrackingTime = None
+
+                if threeminsbefore:
+                    print("No approaching bus has been detected to give the user enough time to make it to their next class.")
+                    self.classTrackingStatus = TRACKING_TIMEOUT
                     self.classTrackingTime = None
 
     # Implement Animate Marker Functionality
@@ -1172,25 +1228,32 @@ class Environment:
         # $outer.remove();
         # return 100 - widthWithScroll;
 
-    def setTrackingName(self):
-        eTime, event = self.pullCalendarClass()
-        if not eTime or self.gui_tracking == False:
-            postmessage = " Not tracking."
-            # if self.gui_tracking == False:
-            self.classTrackingStatus = event + postmessage
-            self.classTrackingTime = None
+    def setTracking(self, track=True):
+        if track:
+            eTime, event = self.pullCalendarClass()
+            if not eTime:
+                postmessage = " Not tracking."
+                self.classTrackingStatus = event + postmessage
+                self.classTrackingTime = None
+            else:
+                self.classTrackingTime = eTime
+                self.className = event
+                self.classTrackingStatus = "\"" + self.className + "\" at " + self.classTrackingTime.strftime("%I:%M %p")
         else:
-            self.classTrackingStatus = "\"" + event + "\" at " + eTime.strftime("%I:%M %p")
-            self.classTrackingTime = eTime
+            self.classTrackingStatus = TRACKING_DEFAULT
+            self.classTrackingTime = None
 
-    def setTrackingHere(self, bus):
-        self.classTrackingStatus = bus['api_data']['title'] + " " + bus['api_data']['id'] + " is here for " + self.classTrackingStatus
+    def alertHere(self, bus):
+        self.classTrackingStatus = bus['api_data']['title'] + " " + bus['api_data']['id'] + " is here for " + self.className + "\" at " + self.classTrackingTime.strftime("%I:%M %p")
 
     #  Adapted from https://developers.google.com/calendar/quickstart/python
     def pullCalendarClass(self):
         """Shows basic usage of the Google Calendar API.
         Prints the start and name of the next 10 events on the user's calendar.
         """
+        if self.user.name is USER_DEFAULT:
+            print('No user logged in, no class schedule loaded.')
+            return None, TRACKING_NULL
         creds = None
         # The file token.pickle stores the user's access and refresh tokens, and is
         # created automatically when the authorization flow completes for the first
@@ -1206,6 +1269,7 @@ class Environment:
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     'credentials.json', SCOPES)
+                    # 'credentials_' + self.user.name + '.json', SCOPES)
                 creds = flow.run_local_server(port=0)
             # Save the credentials for the next run
             with open(pathname, 'wb') as token:

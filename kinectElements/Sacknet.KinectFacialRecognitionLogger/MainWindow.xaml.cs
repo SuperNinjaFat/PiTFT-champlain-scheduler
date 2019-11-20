@@ -21,13 +21,26 @@ namespace Sacknet.KinectFacialRecognitionLogger
         private bool takeTrainingImage = false;
         private KinectFacialRecognitionEngine engine;
         private ObservableCollection<TargetFace> targetFaces = new ObservableCollection<TargetFace>();
-
+        private Dictionary<string, string> arguments = new Dictionary<string, string>();
+        //private sealed class CommandLineActivationOperation{
+        //    //public CommandLineActivationOperation Operation { get; }
+        //    public string Arguments { get; }
+        //    public string CurrentDirectoryPath { get; }
+        //};
 
         /// <summary>
         /// Initializes a new instance of the MainWindow class
         /// </summary>
         public MainWindow()
         {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int index = 1; index < args.Length; index += 2)
+            {
+                string arg = args[index].Replace("--", "");
+                arguments.Add(arg, args[index + 1]);
+            }
+            
+            
             KinectSensor kinectSensor = null;
 
             // loop through all the Kinects attached to this PC, and start the first that is connected without an error.
@@ -66,15 +79,18 @@ namespace Sacknet.KinectFacialRecognitionLogger
             foreach (var trainingImage in Directory.GetFiles("./kinectElements/faces", "*.png"))
             {
                 string rawname = trainingImage.Remove(trainingImage.LastIndexOf(".")).Remove(0, trainingImage.LastIndexOf("\\") + 1); ;
-                this.targetFaces.Add(new BitmapSourceTargetFace
-                {
-                    Key = rawname,
-                    Image = new Bitmap(trainingImage)
-                });
+                if (rawname.Contains(this.arguments["User"])){
+                    this.targetFaces.Add(new BitmapSourceTargetFace
+                    {
+                        Key = rawname,
+                        Image = new Bitmap(trainingImage)
+                    });
+                }
             }
             if (this.targetFaces.Count > 1)
                 this.engine.SetTargetFaces(this.targetFaces);
             this.TrainedFaces.ItemsSource = this.targetFaces;
+            this.NameField.Text = this.arguments["User"] + " " + this.targetFaces.Count.ToString();
         }
 
         [DllImport("gdi32")]
@@ -125,13 +141,13 @@ namespace Sacknet.KinectFacialRecognitionLogger
 
                 if (this.takeTrainingImage)
                 {
-                    string filename = "./kinectElements/faces/" + this.NameField.Text + ".png";
+                    string filename = "./kinectElements/faces/" + this.arguments["User"] + ".png"; //this.NameField.Text + ".png";
                     Image cloned = (Bitmap)face.GrayFace.Clone();
                     cloned.Save(filename);
                     this.targetFaces.Add(new BitmapSourceTargetFace
                     {
                         Image = (Bitmap)face.GrayFace.Clone(),
-                        Key = this.NameField.Text
+                        Key = this.arguments["User"]//this.NameField.Text
                     });
                     //this.targetFaces.Add(new BitmapSourceTargetFace
                     //{
@@ -139,6 +155,7 @@ namespace Sacknet.KinectFacialRecognitionLogger
                     //    Key = this.NameField.Text
                     //});
 
+                    //this.Operation();
 
                     this.takeTrainingImage = false;
                     this.NameField.Text = this.NameField.Text.Replace(this.targetFaces.Count.ToString(), (this.targetFaces.Count + 1).ToString());
@@ -151,13 +168,14 @@ namespace Sacknet.KinectFacialRecognitionLogger
             this.Video.Source = LoadBitmap(e.ProcessedBitmap);
         }
 
+
         /// <summary>
         /// Starts the training image countdown
         /// </summary>
         private void Train(object sender, RoutedEventArgs e)
         {
             this.TrainButton.IsEnabled = false;
-            this.NameField.IsEnabled = false;
+            this.NameField.IsEnabled = false; //TODO: Remove these, since you don't write down names.
 
             var timer = new DispatcherTimer();
             timer.Interval = TimeSpan.FromSeconds(2);
